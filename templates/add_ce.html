@@ -24,6 +24,29 @@
                 </div>
             </div>
 
+            {% if user.is_napfa_member %}
+            <div class="form-group">
+                <label for="napfa_subject_area">NAPFA Subject Area</label>
+                <select id="napfa_subject_area" name="napfa_subject_area">
+                    <option value="">Select a subject area...</option>
+                    <option value="Financial Planning Process">Financial Planning Process</option>
+                    <option value="Insurance & Risk Management">Insurance & Risk Management</option>
+                    <option value="Investments">Investments</option>
+                    <option value="Income Tax Planning">Income Tax Planning</option>
+                    <option value="Retirement Planning & Employee Benefits">Retirement Planning & Employee Benefits</option>
+                    <option value="Estate Planning">Estate Planning</option>
+                    <option value="Ethics">Ethics</option>
+                    <option value="Accounting, Cash Flow Management, & Budgeting">Accounting, Cash Flow Management, & Budgeting</option>
+                    <option value="Economic & Political Environment">Economic & Political Environment</option>
+                    <option value="Communications">Communications</option>
+                    <option value="Marketing and Practice Management">Marketing and Practice Management</option>
+                    <option value="Strategic Thinking">Strategic Thinking</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Diversity, Equity & Inclusion (DEI)">Diversity, Equity & Inclusion (DEI)</option>
+                </select>
+            </div>
+            {% endif %}
+
             <div class="form-row">
                 <div class="form-group">
                     <label for="hours">Hours *</label>

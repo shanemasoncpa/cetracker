@@ -12,23 +12,6 @@
         </div>
     </div>
 
-    <div class="filter-section">
-        <form method="GET" action="{{ url_for('dashboard') }}" class="filter-form">
-            <div class="filter-group">
-                <label for="category">Filter by Category:</label>
-                <select id="category" name="category" onchange="this.form.submit()">
-                    <option value="">All Categories</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat }}" {% if filter_category == cat %}selected{% endif %}>{{ cat }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% if filter_category %}
-            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Clear Filter</a>
-            {% endif %}
-        </form>
-    </div>
-
     {% if user_designations %}
     <div class="designations-section">
         <h2>Your Designations</h2>
@@ -220,6 +203,22 @@
 
     {% if ce_records %}
     <div class="table-container">
+        <div class="filter-section">
+            <form method="GET" action="{{ url_for('dashboard') }}" class="filter-form">
+                <div class="filter-group">
+                    <label for="category">Filter by Category:</label>
+                    <select id="category" name="category" onchange="this.form.submit()">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {% if filter_category == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if filter_category %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Clear Filter</a>
+                {% endif %}
+            </form>
+        </div>
         <table class="ce-table">
             <thead>
                 <tr>
@@ -311,6 +310,29 @@
                         <input type="text" id="modal_category" name="category" placeholder="e.g., Taxation, Ethics">
                     </div>
                 </div>
+
+                {% if user.is_napfa_member %}
+                <div class="form-group">
+                    <label for="modal_napfa_subject_area">NAPFA Subject Area</label>
+                    <select id="modal_napfa_subject_area" name="napfa_subject_area">
+                        <option value="">Select a subject area...</option>
+                        <option value="Financial Planning Process">Financial Planning Process</option>
+                        <option value="Insurance & Risk Management">Insurance & Risk Management</option>
+                        <option value="Investments">Investments</option>
+                        <option value="Income Tax Planning">Income Tax Planning</option>
+                        <option value="Retirement Planning & Employee Benefits">Retirement Planning & Employee Benefits</option>
+                        <option value="Estate Planning">Estate Planning</option>
+                        <option value="Ethics">Ethics</option>
+                        <option value="Accounting, Cash Flow Management, & Budgeting">Accounting, Cash Flow Management, & Budgeting</option>
+                        <option value="Economic & Political Environment">Economic & Political Environment</option>
+                        <option value="Communications">Communications</option>
+                        <option value="Marketing and Practice Management">Marketing and Practice Management</option>
+                        <option value="Strategic Thinking">Strategic Thinking</option>
+                        <option value="Technology">Technology</option>
+                        <option value="Diversity, Equity & Inclusion (DEI)">Diversity, Equity & Inclusion (DEI)</option>
+                    </select>
+                </div>
+                {% endif %}
 
                 <div class="form-row">
                     <div class="form-group">

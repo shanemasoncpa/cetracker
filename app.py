@@ -55,6 +55,7 @@ class CERecord(db.Model):
     description = db.Column(db.Text)
     is_napfa_approved = db.Column(db.Boolean, default=False, nullable=False)  # Marks if CE counts toward NAPFA approved sources requirement
     is_ethics_course = db.Column(db.Boolean, default=False, nullable=False)  # Marks if this is the required 2-CE Ethics course
+    napfa_subject_area = db.Column(db.String(100))  # NAPFA subject area for NAPFA-certified advisors
     certificate_filename = db.Column(db.String(255))  # Stores the filename of uploaded PDF certificate
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -484,6 +485,7 @@ def add_ce():
         description = request.form.get('description')
         is_napfa_approved = request.form.get('is_napfa_approved') == 'on'
         is_ethics_course = request.form.get('is_ethics_course') == 'on'
+        napfa_subject_area = request.form.get('napfa_subject_area')
         
         # Validation
         if not title or not hours or not date_completed:
@@ -526,6 +528,7 @@ def add_ce():
             description=description or '',
             is_napfa_approved=is_napfa_approved,
             is_ethics_course=is_ethics_course,
+            napfa_subject_area=napfa_subject_area or '',
             certificate_filename=certificate_filename
         )
         
@@ -913,6 +916,17 @@ def update_database_schema():
                     raise
                 print("Column certificate_filename already exists.")
             
+            # Add napfa_subject_area column
+            try:
+                db.session.execute(text("ALTER TABLE ce_record ADD COLUMN napfa_subject_area VARCHAR(100)"))
+                ce_record_schema_updated = True
+                print("Added napfa_subject_area column.")
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "duplicate column" not in error_msg and "already exists" not in error_msg and "column" not in error_msg:
+                    raise
+                print("Column napfa_subject_area already exists.")
+            
             if ce_record_schema_updated:
                 db.session.commit()
                 print("Ce_record table schema updated successfully!")
@@ -924,7 +938,7 @@ def update_database_schema():
         try:
             db.session.execute(text(f'SELECT is_napfa_member, napfa_join_date FROM {table_user} LIMIT 1'))
             db.session.execute(text("SELECT birth_month, state FROM user_designation LIMIT 1"))
-            db.session.execute(text("SELECT is_napfa_approved, is_ethics_course, certificate_filename FROM ce_record LIMIT 1"))
+            db.session.execute(text("SELECT is_napfa_approved, is_ethics_course, certificate_filename, napfa_subject_area FROM ce_record LIMIT 1"))
             print("Database schema is up to date.")
         except Exception:
             pass  # Some columns still missing, but we tried to add them

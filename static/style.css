@@ -290,10 +290,8 @@ body {
 }
 
 .filter-section {
-    background-color: var(--card-bg);
-    padding: 1.5rem;
-    border-radius: 0.75rem;
-    box-shadow: var(--shadow);
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .filter-form {
@@ -1233,6 +1231,7 @@ body {
     padding: 2rem;
     overflow-y: auto;
     flex: 1;
+    background-color: var(--card-bg);
 }
 
 .modal-footer {
