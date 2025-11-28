@@ -33,6 +33,7 @@ db = SQLAlchemy(app)
 
 # Database Models
 class User(db.Model):
+    __tablename__ = 'users'  # Use 'users' instead of 'user' to avoid PostgreSQL reserved word conflict
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -45,7 +46,7 @@ class User(db.Model):
 
 class CERecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     title = db.Column(db.String(200), nullable=False)
     provider = db.Column(db.String(200))
     hours = db.Column(db.Float, nullable=False)
@@ -59,7 +60,7 @@ class CERecord(db.Model):
 
 class UserDesignation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     designation = db.Column(db.String(10), nullable=False)  # CFP, CPA, EA, CFA, CPWA, CLU
     birth_month = db.Column(db.Integer)  # For CFP only (1-12)
     state = db.Column(db.String(2))  # For CPA only (state abbreviation)
@@ -436,16 +437,25 @@ def login():
             flash('Please enter both username and password.', 'error')
             return render_template('login.html')
         
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['show_napfa_tracking'] = user.is_napfa_member  # Default to showing if NAPFA member
-            flash('Login successful!', 'success')
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password.', 'error')
+        try:
+            user = User.query.filter_by(username=username).first()
+            
+            if not user:
+                flash('User not found. Please check your username or register for a new account.', 'error')
+                return render_template('login.html')
+            
+            if check_password_hash(user.password_hash, password):
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['show_napfa_tracking'] = user.is_napfa_member  # Default to showing if NAPFA member
+                flash('Login successful!', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                flash('Invalid password. Please try again.', 'error')
+                return render_template('login.html')
+        except Exception as e:
+            flash('An error occurred during login. Please try again.', 'error')
+            print(f"Login error: {e}")  # Log the error for debugging
             return render_template('login.html')
     
     return render_template('login.html')
@@ -791,18 +801,18 @@ def update_database_schema():
         # Detect database type
         is_postgresql = 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'].lower()
         boolean_default = 'FALSE' if is_postgresql else '0'
-        table_user = '"user"' if is_postgresql else 'user'  # PostgreSQL requires quotes for reserved words
+        table_user = 'users'  # Use 'users' table name (changed from 'user' to avoid PostgreSQL reserved word)
         
         schema_updated = False
         
-        # Update user table
+        # Update users table
         try:
             # Try to query the columns to see if they exist
             db.session.execute(text(f'SELECT is_napfa_member, napfa_join_date FROM {table_user} LIMIT 1'))
         except Exception:
             # Columns don't exist, add them
             try:
-                print("Updating user table schema...")
+                print("Updating users table schema...")
                 # Add is_napfa_member column
                 try:
                     db.session.execute(text(f'ALTER TABLE {table_user} ADD COLUMN is_napfa_member BOOLEAN DEFAULT {boolean_default} NOT NULL'))
@@ -825,10 +835,10 @@ def update_database_schema():
                 
                 if schema_updated:
                     db.session.commit()
-                    print("User table schema updated successfully!")
+                    print("Users table schema updated successfully!")
             except Exception as e:
                 db.session.rollback()
-                print(f"Error updating user table schema: {e}")
+                print(f"Error updating users table schema: {e}")
         
         # Update user_designation table
         schema_updated = False
