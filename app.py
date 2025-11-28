@@ -929,10 +929,21 @@ def update_database_schema():
         except Exception:
             pass  # Some columns still missing, but we tried to add them
 
-if __name__ == '__main__':
+# Initialize database on startup
+def init_db():
+    """Initialize database tables"""
     with app.app_context():
+        print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")  # Log first 50 chars for debugging
+        print(f"Creating database tables...")
         db.create_all()
+        print(f"User table name: {User.__tablename__}")  # Verify table name
         update_database_schema()
         ensure_upload_directory()
+        print("Database initialization complete!")
+
+# Initialize on import (for Gunicorn)
+init_db()
+
+if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 
