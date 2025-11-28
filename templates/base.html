@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CE Tracker{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('dashboard') }}" class="nav-brand">CE Tracker</a>
+            <div class="nav-links">
+                {% if session.user_id %}
+                    <span class="nav-user">Welcome, {{ session.username }}!</span>
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('add_ce') }}">Add CE</a>
+                    <a href="{{ url_for('manage_designations') }}">Designations</a>
+                    <a href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Login</a>
+                    <a href="{{ url_for('register') }}">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2025 CE Tracker. Free and open for all professionals.</p>
+    </footer>
+    
+    <script>
+        // Tooltip functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tooltipIcons = document.querySelectorAll('.tooltip-icon');
+            tooltipIcons.forEach(icon => {
+                icon.addEventListener('mouseenter', function(e) {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'tooltip';
+                    tooltip.textContent = this.getAttribute('data-tooltip');
+                    document.body.appendChild(tooltip);
+                    
+                    const rect = this.getBoundingClientRect();
+                    tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+                    tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
+                    
+                    // Adjust if tooltip goes off screen
+                    if (tooltip.offsetLeft < 10) {
+                        tooltip.style.left = '10px';
+                    }
+                    if (tooltip.offsetLeft + tooltip.offsetWidth > window.innerWidth - 10) {
+                        tooltip.style.left = (window.innerWidth - tooltip.offsetWidth - 10) + 'px';
+                    }
+                });
+                
+                icon.addEventListener('mouseleave', function() {
+                    const tooltip = document.querySelector('.tooltip');
+                    if (tooltip) {
+                        tooltip.remove();
+                    }
+                });
+            });
+        });
+        
+        // Toggle CFP birth month field
+        function toggleCfpBirthMonth(checkbox, designation) {
+            const cfpGroup = document.getElementById('cfp-birth-month-group');
+            const cfpInput = document.getElementById('cfp_birth_month');
+            
+            if (designation === 'CFP' && checkbox.checked) {
+                cfpGroup.style.display = 'block';
+                cfpInput.required = true;
+            } else if (designation === 'CFP' && !checkbox.checked) {
+                // Check if any other CFP checkbox is checked
+                const cfpCheckboxes = document.querySelectorAll('input[name="designations"][value="CFP"]');
+                let hasCfp = false;
+                cfpCheckboxes.forEach(cb => {
+                    if (cb.checked) hasCfp = true;
+                });
+                
+                if (!hasCfp) {
+                    cfpGroup.style.display = 'none';
+                    cfpInput.required = false;
+                    cfpInput.value = '';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
