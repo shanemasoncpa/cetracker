@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - CE Tracker{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>CE Analytics</h1>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="analytics-stats-grid">
+        <div class="analytics-stat-card">
+            <div class="analytics-stat-value">{{ "%.1f"|format(total_hours) }}</div>
+            <div class="analytics-stat-label">Total Hours</div>
+        </div>
+        <div class="analytics-stat-card">
+            <div class="analytics-stat-value">{{ total_records }}</div>
+            <div class="analytics-stat-label">Total Records</div>
+        </div>
+        <div class="analytics-stat-card">
+            <div class="analytics-stat-value">{{ "%.1f"|format(avg_hours) }}</div>
+            <div class="analytics-stat-label">Avg Hours/Record</div>
+        </div>
+        <div class="analytics-stat-card">
+            <div class="analytics-stat-value">{{ categories_count }}</div>
+            <div class="analytics-stat-label">Categories</div>
+        </div>
+    </div>
+
+    {% if total_records > 0 %}
+    <!-- Charts Grid -->
+    <div class="analytics-charts-grid">
+        <div class="analytics-chart-card">
+            <h3>Hours by Category</h3>
+            <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="analytics-chart-card">
+            <h3>Monthly Hours (Last 12 Months)</h3>
+            <canvas id="monthlyChart"></canvas>
+        </div>
+        <div class="analytics-chart-card">
+            <h3>Year-over-Year</h3>
+            <canvas id="yearlyChart"></canvas>
+        </div>
+        <div class="analytics-chart-card">
+            <h3>Top Providers</h3>
+            {% if top_providers %}
+            <div class="analytics-provider-list">
+                {% for provider, hours in top_providers %}
+                <div class="analytics-provider-row">
+                    <span class="analytics-provider-name">{{ provider }}</span>
+                    <div class="analytics-provider-bar-container">
+                        <div class="analytics-provider-bar" style="width: {{ (hours / top_providers[0][1] * 100)|round }}%"></div>
+                    </div>
+                    <span class="analytics-provider-hours">{{ "%.1f"|format(hours) }}h</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-secondary">No provider data yet.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No CE records yet. <a href="{{ url_for('ce_records.dashboard') }}">Add your first CE record</a> to see analytics.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% if total_records > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+const chartColors = [
+    '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1',
+    '#14b8a6', '#e11d48', '#a855f7', '#0ea5e9'
+];
+
+// Category Doughnut Chart
+const categoryData = {{ category_hours | tojson }};
+new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+        labels: Object.keys(categoryData),
+        datasets: [{
+            data: Object.values(categoryData),
+            backgroundColor: chartColors.slice(0, Object.keys(categoryData).length),
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true } }
+        }
+    }
+});
+
+// Monthly Bar Chart
+const monthlyData = {{ monthly_hours | tojson }};
+const monthLabels = Object.keys(monthlyData).map(key => {
+    const [y, m] = key.split('-');
+    return new Date(y, m - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+});
+new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: monthLabels,
+        datasets: [{
+            label: 'Hours',
+            data: Object.values(monthlyData),
+            backgroundColor: '#2563eb',
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Hours' } }
+        }
+    }
+});
+
+// Yearly Bar Chart
+const yearlyData = {{ yearly_hours | tojson }};
+new Chart(document.getElementById('yearlyChart'), {
+    type: 'bar',
+    data: {
+        labels: Object.keys(yearlyData),
+        datasets: [{
+            label: 'Hours',
+            data: Object.values(yearlyData),
+            backgroundColor: '#10b981',
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Hours' } }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

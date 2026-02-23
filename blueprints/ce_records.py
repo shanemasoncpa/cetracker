@@ -1,0 +1,401 @@
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, send_from_directory, current_app
+from werkzeug.utils import secure_filename
+from datetime import datetime, timedelta
+import os
+import csv
+import io
+import uuid
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+from models import db, User, CERecord, UserDesignation
+from designation_helpers import calculate_designation_requirements, calculate_napfa_requirements
+
+ce_bp = Blueprint('ce_records', __name__)
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+
+
+def ensure_upload_directory():
+    upload_dir = current_app.config['UPLOAD_FOLDER']
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
+
+
+@ce_bp.route('/dashboard')
+def dashboard():
+    if 'user_id' not in session:
+        flash('Please log in to access your dashboard.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+    user_designations = UserDesignation.query.filter_by(user_id=user.id).all()
+    filter_category = request.args.get('category', '')
+
+    query = CERecord.query.filter_by(user_id=user.id)
+    if filter_category:
+        query = query.filter(CERecord.category == filter_category)
+    ce_records = query.order_by(CERecord.date_completed.desc()).all()
+
+    all_categories = db.session.query(CERecord.category).filter_by(user_id=user.id).distinct().all()
+    categories = [cat[0] for cat in all_categories if cat[0]]
+    total_hours = sum(r.hours for r in ce_records)
+
+    napfa_requirements = calculate_napfa_requirements(user) if user.is_napfa_member else None
+    show_napfa = session.get('show_napfa_tracking', user.is_napfa_member)
+    designation_requirements = calculate_designation_requirements(user, user_designations)
+
+    return render_template('dashboard.html', ce_records=ce_records, total_hours=total_hours,
+                           categories=categories, filter_category=filter_category,
+                           user_designations=user_designations,
+                           napfa_requirements=napfa_requirements,
+                           show_napfa=show_napfa,
+                           designation_requirements=designation_requirements,
+                           user=user)
+
+
+@ce_bp.route('/add_ce', methods=['GET', 'POST'])
+def add_ce():
+    if 'user_id' not in session:
+        flash('Please log in to add CE records.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+
+    if request.method == 'POST':
+        title = request.form.get('title')
+        provider = request.form.get('provider')
+        hours = request.form.get('hours')
+        date_completed = request.form.get('date_completed')
+        category = request.form.get('category')
+        description = request.form.get('description')
+        is_napfa_approved = request.form.get('is_napfa_approved') == 'on'
+        is_ethics_course = request.form.get('is_ethics_course') == 'on'
+        napfa_subject_area = request.form.get('napfa_subject_area')
+
+        if not title or not hours or not date_completed:
+            flash('Title, hours, and date completed are required.', 'error')
+            return redirect(url_for('ce_records.dashboard'))
+
+        try:
+            hours = float(hours)
+            date_completed = datetime.strptime(date_completed, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Invalid hours or date format.', 'error')
+            return redirect(url_for('ce_records.dashboard'))
+
+        certificate_filename = None
+        if 'certificate' in request.files:
+            file = request.files['certificate']
+            if file and file.filename != '':
+                if allowed_file(file.filename):
+                    ensure_upload_directory()
+                    original_filename = secure_filename(file.filename)
+                    file_ext = original_filename.rsplit('.', 1)[1].lower()
+                    unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
+                    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+                    file.save(file_path)
+                    certificate_filename = unique_filename
+                else:
+                    flash('Only PDF files are allowed for certificates.', 'error')
+                    return redirect(url_for('ce_records.dashboard'))
+
+        ce_record = CERecord(
+            user_id=session['user_id'], title=title, provider=provider or '',
+            hours=hours, date_completed=date_completed, category=category or '',
+            description=description or '', is_napfa_approved=is_napfa_approved,
+            is_ethics_course=is_ethics_course, napfa_subject_area=napfa_subject_area or '',
+            certificate_filename=certificate_filename
+        )
+        db.session.add(ce_record)
+        db.session.commit()
+
+        flash('CE record added successfully!', 'success')
+        return redirect(url_for('ce_records.dashboard'))
+
+    return render_template('add_ce.html', user=user)
+
+
+@ce_bp.route('/certificate/<int:ce_id>')
+def download_certificate(ce_id):
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    ce_record = CERecord.query.get_or_404(ce_id)
+    if ce_record.user_id != session['user_id']:
+        flash('You do not have permission to access this certificate.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    if not ce_record.certificate_filename:
+        flash('No certificate available for this CE record.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'],
+                               ce_record.certificate_filename, as_attachment=True)
+
+
+@ce_bp.route('/delete_ce/<int:ce_id>', methods=['POST'])
+def delete_ce(ce_id):
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    ce_record = CERecord.query.get_or_404(ce_id)
+    if ce_record.user_id != session['user_id']:
+        flash('You do not have permission to delete this record.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    if ce_record.certificate_filename:
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], ce_record.certificate_filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+
+    db.session.delete(ce_record)
+    db.session.commit()
+    flash('CE record deleted successfully!', 'success')
+    return redirect(url_for('ce_records.dashboard'))
+
+
+@ce_bp.route('/edit_ce/<int:ce_id>', methods=['POST'])
+def edit_ce(ce_id):
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    ce_record = CERecord.query.get_or_404(ce_id)
+    if ce_record.user_id != session['user_id']:
+        flash('You do not have permission to edit this record.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    title = request.form.get('title')
+    provider = request.form.get('provider')
+    hours = request.form.get('hours')
+    date_completed = request.form.get('date_completed')
+    category = request.form.get('category')
+    description = request.form.get('description')
+    is_napfa_approved = request.form.get('is_napfa_approved') == 'on'
+    is_ethics_course = request.form.get('is_ethics_course') == 'on'
+    napfa_subject_area = request.form.get('napfa_subject_area')
+
+    if not title or not hours or not date_completed:
+        flash('Title, hours, and date completed are required.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    try:
+        hours = float(hours)
+        date_completed = datetime.strptime(date_completed, '%Y-%m-%d').date()
+    except ValueError:
+        flash('Invalid hours or date format.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    if 'certificate' in request.files:
+        file = request.files['certificate']
+        if file and file.filename != '':
+            if allowed_file(file.filename):
+                ensure_upload_directory()
+                if ce_record.certificate_filename:
+                    old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], ce_record.certificate_filename)
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                        except OSError:
+                            pass
+                original_filename = secure_filename(file.filename)
+                file_ext = original_filename.rsplit('.', 1)[1].lower()
+                unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
+                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(file_path)
+                ce_record.certificate_filename = unique_filename
+            else:
+                flash('Only PDF files are allowed for certificates.', 'error')
+                return redirect(url_for('ce_records.dashboard'))
+
+    ce_record.title = title
+    ce_record.provider = provider or ''
+    ce_record.hours = hours
+    ce_record.date_completed = date_completed
+    ce_record.category = category or ''
+    ce_record.description = description or ''
+    ce_record.is_napfa_approved = is_napfa_approved
+    ce_record.is_ethics_course = is_ethics_course
+    ce_record.napfa_subject_area = napfa_subject_area or ''
+
+    db.session.commit()
+    flash('CE record updated successfully!', 'success')
+    return redirect(url_for('ce_records.dashboard'))
+
+
+@ce_bp.route('/toggle_napfa_tracking', methods=['POST'])
+def toggle_napfa_tracking():
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+    session['show_napfa_tracking'] = not session.get('show_napfa_tracking', False)
+    return redirect(url_for('ce_records.dashboard'))
+
+
+@ce_bp.route('/export_ce')
+def export_ce():
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+    filter_category = request.args.get('category', '')
+
+    query = CERecord.query.filter_by(user_id=user.id)
+    if filter_category:
+        query = query.filter(CERecord.category == filter_category)
+    ce_records = query.order_by(CERecord.date_completed.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date Completed', 'Title', 'Provider', 'Category', 'Hours', 'Description'])
+    for record in ce_records:
+        writer.writerow([
+            record.date_completed.strftime('%Y-%m-%d'),
+            record.title, record.provider or '', record.category or '',
+            record.hours, record.description or ''
+        ])
+
+    filename = f'ce_records_{datetime.now().strftime("%Y%m%d")}.csv'
+    if filter_category:
+        filename = f'ce_records_{filter_category.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.csv'
+
+    output.seek(0)
+    return Response(output.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={filename}'})
+
+
+@ce_bp.route('/export_pdf')
+def export_pdf():
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+    filter_category = request.args.get('category', '')
+
+    query = CERecord.query.filter_by(user_id=user.id)
+    if filter_category:
+        query = query.filter(CERecord.category == filter_category)
+    ce_records = query.order_by(CERecord.date_completed.desc()).all()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch,
+                            leftMargin=0.5 * inch, rightMargin=0.5 * inch)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_text = 'CE Records'
+    if filter_category:
+        title_text += f' — {filter_category}'
+    elements.append(Paragraph(f'<b>{title_text}</b>', styles['Title']))
+    elements.append(Paragraph(f'{user.username} | Exported {datetime.now().strftime("%B %d, %Y")}', styles['Normal']))
+    elements.append(Spacer(1, 0.25 * inch))
+
+    total_hours = sum(r.hours for r in ce_records)
+    elements.append(Paragraph(f'Total Records: {len(ce_records)} | Total Hours: {total_hours:.1f}', styles['Normal']))
+    elements.append(Spacer(1, 0.25 * inch))
+
+    header = ['Date', 'Title', 'Provider', 'Category', 'Hours', 'Description']
+    data = [header]
+    for record in ce_records:
+        data.append([
+            record.date_completed.strftime('%Y-%m-%d'),
+            Paragraph(record.title[:60], styles['Normal']),
+            Paragraph((record.provider or '')[:40], styles['Normal']),
+            record.category or '',
+            str(record.hours),
+            Paragraph((record.description or '')[:80], styles['Normal']),
+        ])
+
+    col_widths = [0.9 * inch, 2.5 * inch, 1.8 * inch, 1.5 * inch, 0.7 * inch, 2.6 * inch]
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ALIGN', (4, 0), (4, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f'ce_records_{datetime.now().strftime("%Y%m%d")}.pdf'
+    if filter_category:
+        filename = f'ce_records_{filter_category.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.pdf'
+
+    return Response(buffer.getvalue(), mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename={filename}'})
+
+
+@ce_bp.route('/analytics')
+def analytics():
+    if 'user_id' not in session:
+        flash('Please log in to view analytics.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+    ce_records = CERecord.query.filter_by(user_id=user.id).order_by(CERecord.date_completed.desc()).all()
+
+    category_hours = {}
+    for r in ce_records:
+        cat = r.category or 'Uncategorized'
+        category_hours[cat] = category_hours.get(cat, 0) + r.hours
+
+    monthly_hours = {}
+    now = datetime.now()
+    for i in range(11, -1, -1):
+        month_date = datetime(now.year, now.month, 1) - timedelta(days=i * 30)
+        key = month_date.strftime('%Y-%m')
+        monthly_hours[key] = 0
+    for r in ce_records:
+        key = r.date_completed.strftime('%Y-%m')
+        if key in monthly_hours:
+            monthly_hours[key] += r.hours
+
+    provider_hours = {}
+    for r in ce_records:
+        prov = r.provider or 'Unknown'
+        if prov:
+            provider_hours[prov] = provider_hours.get(prov, 0) + r.hours
+    top_providers = sorted(provider_hours.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    total_hours = sum(r.hours for r in ce_records)
+    total_records = len(ce_records)
+    avg_hours = total_hours / total_records if total_records else 0
+    categories_count = len(category_hours)
+
+    yearly_hours = {}
+    for r in ce_records:
+        year = str(r.date_completed.year)
+        yearly_hours[year] = yearly_hours.get(year, 0) + r.hours
+
+    return render_template('analytics.html', user=user,
+                           category_hours=category_hours,
+                           monthly_hours=monthly_hours,
+                           top_providers=top_providers,
+                           yearly_hours=yearly_hours,
+                           total_hours=total_hours,
+                           total_records=total_records,
+                           avg_hours=avg_hours,
+                           categories_count=categories_count)

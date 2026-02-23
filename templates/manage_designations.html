@@ -20,7 +20,7 @@
                     {% if designation == 'CPA' and user_designation.state %}
                     <span class="designation-info">State: {{ user_designation.state }}</span>
                     {% endif %}
-                    <form method="POST" action="{{ url_for('manage_designations') }}" style="display: inline;">
+                    <form method="POST" action="{{ url_for('designations.manage_designations') }}" style="display: inline;">
                         <input type="hidden" name="action" value="remove">
                         <input type="hidden" name="designation_id" value="{{ user_designation.id }}">
                         <button type="submit" class="btn btn-danger btn-sm" 
@@ -38,7 +38,7 @@
         
         <div class="add-designation">
             <h2>Add a Designation</h2>
-            <form method="POST" action="{{ url_for('manage_designations') }}" class="ce-form">
+            <form method="POST" action="{{ url_for('designations.manage_designations') }}" class="ce-form">
                 <input type="hidden" name="action" value="add">
                 
                 <div class="form-group">
@@ -147,7 +147,7 @@
                 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Add Designation</button>
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+                    <a href="{{ url_for('ce_records.dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
                 </div>
             </form>
         </div>

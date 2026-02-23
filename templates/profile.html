@@ -10,7 +10,7 @@
         <!-- Email Update Section -->
         <h2 style="font-size: 1.125rem; color: var(--text-primary); margin-bottom: 0.5rem; margin-top: 1.5rem;">Update Email</h2>
         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">Current email: <strong>{{ user.email }}</strong></p>
-        <form method="POST" action="{{ url_for('profile') }}" class="auth-form">
+        <form method="POST" action="{{ url_for('profile.profile') }}" class="auth-form">
             <input type="hidden" name="action" value="update_email">
             <div class="form-group">
                 <label for="email">New Email Address</label>
@@ -23,7 +23,7 @@
 
         <!-- Password Change Section -->
         <h2 style="font-size: 1.125rem; color: var(--text-primary); margin-bottom: 1rem;">Change Password</h2>
-        <form method="POST" action="{{ url_for('profile') }}" class="auth-form">
+        <form method="POST" action="{{ url_for('profile.profile') }}" class="auth-form">
             <input type="hidden" name="action" value="change_password">
             <div class="form-group">
                 <label for="current_password">Current Password</label>
@@ -61,7 +61,7 @@
         </div>
 
         <p class="auth-link">
-            <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+            <a href="{{ url_for('ce_records.dashboard') }}">Back to Dashboard</a>
         </p>
     </div>
 </div>

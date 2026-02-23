@@ -8,7 +8,8 @@
         <h1>Your CE Records</h1>
         <div class="header-actions">
             <button type="button" class="btn btn-primary" onclick="openAddCEModal()">+ Add New CE</button>
-            <a href="{{ url_for('export_ce', category=filter_category) }}" class="btn btn-secondary">📥 Export CSV</a>
+            <a href="{{ url_for('ce_records.export_ce', category=filter_category) }}" class="btn btn-secondary">📥 Export CSV</a>
+            <a href="{{ url_for('ce_records.export_pdf', category=filter_category) }}" class="btn btn-secondary">📄 Export PDF</a>
         </div>
     </div>
 
@@ -24,7 +25,7 @@
                 {% endif %}
             </span>
             {% endfor %}
-            <a href="{{ url_for('manage_designations') }}" class="btn btn-secondary btn-sm">Manage</a>
+            <a href="{{ url_for('designations.manage_designations') }}" class="btn btn-secondary btn-sm">Manage</a>
         </div>
     </div>
     
@@ -100,7 +101,7 @@
     {% endif %}
     {% else %}
     <div class="designations-section">
-        <p>No designations yet. <a href="{{ url_for('manage_designations') }}">Add your designations</a> to track CE requirements!</p>
+        <p>No designations yet. <a href="{{ url_for('designations.manage_designations') }}">Add your designations</a> to track CE requirements!</p>
     </div>
     {% endif %}
 
@@ -108,7 +109,7 @@
     <div class="napfa-section">
         <div class="napfa-header">
             <h2>NAPFA CE Requirements</h2>
-            <form method="POST" action="{{ url_for('toggle_napfa_tracking') }}" style="display: inline;">
+            <form method="POST" action="{{ url_for('ce_records.toggle_napfa_tracking') }}" style="display: inline;">
                 <button type="submit" class="btn btn-secondary btn-sm">
                     {{ 'Hide' if show_napfa else 'Show' }} NAPFA Tracking
                 </button>
@@ -204,7 +205,7 @@
     {% if ce_records %}
     <div class="table-container">
         <div class="filter-section">
-            <form method="GET" action="{{ url_for('dashboard') }}" class="filter-form">
+            <form method="GET" action="{{ url_for('ce_records.dashboard') }}" class="filter-form">
                 <div class="filter-group">
                     <label for="category">Filter by Category:</label>
                     <select id="category" name="category" onchange="this.form.submit()">
@@ -215,7 +216,7 @@
                     </select>
                 </div>
                 {% if filter_category %}
-                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Clear Filter</a>
+                <a href="{{ url_for('ce_records.dashboard') }}" class="btn btn-secondary btn-sm">Clear Filter</a>
                 {% endif %}
             </form>
         </div>
@@ -258,7 +259,7 @@
                     {% endif %}
                     <td>
                         {% if record.certificate_filename %}
-                        <a href="{{ url_for('download_certificate', ce_id=record.id) }}" class="certificate-link" target="_blank" title="Download Certificate">
+                        <a href="{{ url_for('ce_records.download_certificate', ce_id=record.id) }}" class="certificate-link" target="_blank" title="Download Certificate">
                             📄 PDF
                         </a>
                         {% else %}
@@ -280,7 +281,7 @@
                                 data-napfa-subject-area="{{ (record.napfa_subject_area or '')|e }}"
                                 data-certificate-filename="{{ (record.certificate_filename or '')|e }}"
                                 onclick="openEditCEModal(this)">Edit</button>
-                        <form method="POST" action="{{ url_for('delete_ce', ce_id=record.id) }}"
+                        <form method="POST" action="{{ url_for('ce_records.delete_ce', ce_id=record.id) }}"
                               onsubmit="return confirm('Are you sure you want to delete this CE record?');"
                               style="display: inline;">
                             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -305,7 +306,7 @@
             <h2>Add CE Record</h2>
             <button type="button" class="modal-close" onclick="closeAddCEModal()">&times;</button>
         </div>
-        <form method="POST" action="{{ url_for('add_ce') }}" class="ce-form" enctype="multipart/form-data" id="addCEForm">
+        <form method="POST" action="{{ url_for('ce_records.add_ce') }}" class="ce-form" enctype="multipart/form-data" id="addCEForm">
             <div class="modal-body">
                 <div class="form-group">
                     <label for="modal_title">Title *</label>
@@ -654,7 +655,7 @@
         var certificateFilename = button.getAttribute('data-certificate-filename');
 
         // Set form action
-        document.getElementById('editCEForm').action = '/edit_ce/' + id;
+        document.getElementById('editCEForm').action = '{{ url_for("ce_records.edit_ce", ce_id=0) }}'.replace('0', id);
 
         // Populate hidden ID
         document.getElementById('edit_ce_id').value = id;
