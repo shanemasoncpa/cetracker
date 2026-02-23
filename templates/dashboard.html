@@ -268,7 +268,7 @@
                         {% endif %}
                     </td>
                     <td class="description-cell">{{ record.description[:50] }}{% if record.description|length > 50 %}...{% endif %}</td>
-                    <td>
+                    <td class="actions-cell">
                         <button type="button" class="btn btn-primary btn-sm edit-ce-btn"
                                 data-id="{{ record.id }}"
                                 data-title="{{ record.title|e }}"

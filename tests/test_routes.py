@@ -1,5 +1,6 @@
 """Smoke tests for all routes - verify pages load and auth guards work."""
 from datetime import date
+import io
 
 
 def test_index_redirects(client):
@@ -183,3 +184,263 @@ def test_cannot_delete_other_users_record(logged_in_client, test_app):
 
     response = logged_in_client.post(f'/delete_ce/{record_id}', follow_redirects=True)
     assert b'permission' in response.data.lower()
+
+
+# ── CSV Import Tests ──────────────────────────────────────────────────────────
+
+
+def _make_csv(content: str) -> io.BytesIO:
+    """Helper: wrap a CSV string into a BytesIO with a .csv filename."""
+    data = io.BytesIO(content.encode('utf-8'))
+    data.name = 'import.csv'
+    return data
+
+
+def test_import_ce_requires_login(client):
+    """Import route redirects to login when not authenticated."""
+    csv_data = _make_csv("Title,Hours\nTest,1.0\n")
+    response = client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_import_valid_csv(logged_in_client, test_app):
+    """Import a well-formed CSV and verify records are created."""
+    csv_content = (
+        "Date Completed,Title,Provider,Category,Hours,Description\n"
+        "2026-01-15,Ethics Refresher,AICPA,Ethics,2.0,Annual ethics course\n"
+        "2026-02-10,Tax Update 2026,CPE Provider,Tax,4.5,Tax law changes\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 2 CE record' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        records = CERecord.query.order_by(CERecord.title).all()
+        assert len(records) == 2
+        ethics = next(r for r in records if r.title == 'Ethics Refresher')
+        assert ethics.hours == 2.0
+        assert ethics.provider == 'AICPA'
+        assert ethics.category == 'Ethics'
+        assert ethics.date_completed == date(2026, 1, 15)
+
+        tax = next(r for r in records if r.title == 'Tax Update 2026')
+        assert tax.hours == 4.5
+
+
+def test_import_flexible_column_names(logged_in_client, test_app):
+    """Import recognizes alternate column names (Course Name, Credits, etc.)."""
+    csv_content = (
+        "Course Name,Credits,Sponsor,Type\n"
+        "Retirement Planning,3.0,NAPFA,Financial Planning\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 1 CE record' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        record = CERecord.query.filter_by(title='Retirement Planning').first()
+        assert record is not None
+        assert record.hours == 3.0
+        assert record.provider == 'NAPFA'
+        assert record.category == 'Financial Planning'
+
+
+def test_import_missing_required_columns(logged_in_client):
+    """CSV without Title or Hours column is rejected."""
+    csv_content = "Date,Provider,Category\n2026-01-01,AICPA,Ethics\n"
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'must have at least' in response.data.lower()
+
+
+def test_import_missing_title_column_only(logged_in_client):
+    """CSV with Hours but no Title column is rejected."""
+    csv_content = "Hours,Provider\n2.0,AICPA\n"
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'must have at least' in response.data.lower()
+
+
+def test_import_skips_duplicates(logged_in_client, test_app, sample_user):
+    """Rows matching an existing record (title + date + hours) are skipped."""
+    from models import CERecord, db
+    with test_app.app_context():
+        existing = CERecord(
+            user_id=sample_user['id'],
+            title='Already Exists',
+            hours=2.0,
+            date_completed=date(2026, 1, 15),
+            description='',
+        )
+        db.session.add(existing)
+        db.session.commit()
+
+    csv_content = (
+        "Title,Hours,Date Completed\n"
+        "Already Exists,2.0,2026-01-15\n"
+        "New Course,3.0,2026-03-01\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 1 CE record' in response.data
+    assert b'1 row skipped' in response.data
+
+    from models import CERecord as CR
+    with test_app.app_context():
+        total = CR.query.filter_by(user_id=sample_user['id']).count()
+        assert total == 2  # 1 existing + 1 new
+
+
+def test_import_bad_date_falls_back_to_today(logged_in_client, test_app):
+    """Unparseable dates fall back to today with a warning."""
+    csv_content = (
+        "Title,Hours,Date Completed\n"
+        "Bad Date Course,1.5,not-a-date\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 1 CE record' in response.data
+    assert b'Could not parse date' in response.data
+
+    from models import CERecord
+    from datetime import date as dt_date
+    with test_app.app_context():
+        record = CERecord.query.filter_by(title='Bad Date Course').first()
+        assert record is not None
+        assert record.date_completed == dt_date.today()
+
+
+def test_import_various_date_formats(logged_in_client, test_app):
+    """Import handles multiple date formats (MM/DD/YYYY, MM-DD-YYYY, etc.)."""
+    csv_content = (
+        "Title,Hours,Date Completed\n"
+        "Course A,1.0,01/15/2026\n"
+        "Course B,1.0,01-15-2026\n"
+        "Course C,1.0,2026/01/15\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 3 CE record' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        records = CERecord.query.order_by(CERecord.title).all()
+        assert len(records) == 3
+        # All three should parse to Jan 15, 2026
+        for r in records:
+            assert r.date_completed == date(2026, 1, 15)
+
+
+def test_import_skips_blank_rows(logged_in_client, test_app):
+    """Rows where both title and hours are empty are silently skipped."""
+    csv_content = (
+        "Title,Hours,Date Completed\n"
+        "Real Course,2.0,2026-01-15\n"
+        ",,\n"
+        " , , \n"
+        "Another Course,1.5,2026-02-01\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 2 CE record' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        assert CERecord.query.count() == 2
+
+
+def test_import_row_missing_title(logged_in_client, test_app):
+    """A row with hours but no title is skipped with an error note."""
+    csv_content = (
+        "Title,Hours,Date Completed\n"
+        ",3.0,2026-01-15\n"
+        "Valid Course,1.0,2026-02-01\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 1 CE record' in response.data
+    assert b'1 row skipped' in response.data
+    assert b'Missing title' in response.data
+
+
+def test_import_invalid_hours(logged_in_client, test_app):
+    """A row with non-numeric hours is skipped with an error note."""
+    csv_content = (
+        "Title,Hours\n"
+        "Good Course,2.0\n"
+        "Bad Course,abc\n"
+        "Zero Course,0\n"
+    )
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 1 CE record' in response.data
+    assert b'2 rows skipped' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        assert CERecord.query.count() == 1
+        assert CERecord.query.first().title == 'Good Course'
+
+
+def test_import_no_file_selected(logged_in_client):
+    """Posting to import with no file flashes an error."""
+    response = logged_in_client.post('/import_ce', data={},
+                                     content_type='multipart/form-data',
+                                     follow_redirects=True)
+    assert b'No file selected' in response.data
+
+
+def test_import_non_csv_file(logged_in_client):
+    """Uploading a non-CSV file is rejected."""
+    data = io.BytesIO(b"not a csv")
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (data, 'report.xlsx'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Please upload a CSV file' in response.data
+
+
+def test_import_empty_csv(logged_in_client):
+    """A CSV file with no data rows (only headers) imports 0 records."""
+    csv_content = "Title,Hours,Date Completed\n"
+    csv_data = _make_csv(csv_content)
+    response = logged_in_client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully imported 0 CE records' in response.data

@@ -11,7 +11,16 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 - **App**: CE Tracker - free web app for tracking Continuing Education credentials
 - **Stack**: Python Flask, SQLAlchemy, SQLite (dev) / PostgreSQL (prod), Jinja2 templates, vanilla CSS/JS
 - **Deployment**: Render (see `render.yaml`, `Procfile`, `runtime.txt`)
-- **URL structure**: Monolithic `app.py` (1288 lines), single `style.css` (1559 lines)
+- **Architecture**: Blueprint-based (refactored from monolithic app.py)
+  - `app.py` — slim entry point (~105 lines), creates app, registers blueprints, schema migration
+  - `models.py` — all SQLAlchemy models (User, CERecord, UserDesignation, Feedback)
+  - `designation_helpers.py` — all 16 designation CE requirement calculators + NAPFA calculator
+  - `blueprints/auth.py` — register, login, logout, forgot/reset password
+  - `blueprints/ce_records.py` — dashboard, add/edit/delete CE, CSV import/export, PDF export, analytics
+  - `blueprints/admin.py` — admin feedback routes with admin_required decorator
+  - `blueprints/designations.py` — manage designations (add/remove)
+  - `blueprints/profile.py` — profile/settings + feedback submission
+  - `tests/` — pytest suite (39 tests covering auth + routes)
 
 ## Agent Roles
 
@@ -31,6 +40,9 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 | File(s) | Owner | Others may read but NOT edit |
 |---------|-------|------------------------------|
 | `app.py` | Backend Agent | - |
+| `models.py` | Backend Agent | - |
+| `designation_helpers.py` | Backend Agent | - |
+| `blueprints/*.py` | Backend Agent | - |
 | `requirements.txt` | Backend Agent | - |
 | `templates/*.html` | Frontend Agent | - |
 | `static/style.css` | Frontend Agent | - |
@@ -40,63 +52,56 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 | `render.yaml`, `Procfile` | Manager Agent | - |
 
 ## Current State Assessment
-### What's Built (Working)
-- User registration with designation selection (CFP, CPA, EA, CEP, ECA, + 12 more)
-- Login/logout with session auth
+### What's Built (Working) — as of 2026-02-23
+- User registration with 17 designation options (CFP, CPA, CFA, EA, CEP, ECA, CLU, ChFC, CIMA, CIMC, CPWA, CRPS, RICP, CDFA, AIF, IAR, CLE)
+- Login/logout with session auth + forgot/reset password
+- User profile page (change email, password)
 - Dashboard with CE records table, category filtering, stats
-- Add CE modal with PDF certificate upload
-- Delete CE records
-- CSV export (with category filter)
+- Add/Edit/Delete CE records with PDF certificate upload
+- CSV import (bulk upload historical CE records)
+- CSV + PDF export (with category filter)
 - NAPFA CE tracking with progress bars
-- Designation-specific CE requirement tracking (CFP, CPA, EA, CEP, ECA)
+- Designation-specific CE requirement tracking with calculators for all 16 designations
+- Analytics page with Chart.js (category, monthly, yearly, provider charts)
 - Manage designations page (add/remove)
-- Feedback system (submit + admin view)
+- Feedback system (submit + admin view with is_admin role)
+- Dark mode toggle with localStorage persistence
+- Blueprint-based architecture (5 blueprints)
+- 39 passing pytest tests
 - Responsive design
-- Render deployment config
+- Deployed on Render with PostgreSQL
 
-### What Needs Work
-1. **No Edit CE** - Users can add/delete but NOT edit existing CE records
-2. **No Password Reset** - No forgot password flow
-3. **No User Profile/Settings** - Can't change email, password, or profile info
-4. **Monolithic app.py** - 1288 lines, should be refactored into blueprints
-5. **No Tests** - Zero test coverage
-6. **Hardcoded NAPFA cycle** - Locked to 2024-2025, needs dynamic calculation
-7. **No PDF Export** - Only CSV export exists
-8. **No Email Reminders** - Listed as future feature
-9. **No Reporting/Analytics** - Only basic stats (total hours, record count)
-10. **Missing designations** - CFA, CLE, CLU, ChFC, CIMA, CIMC, CPWA, CRPS, RICP, CDFA, AIF, IAR have no requirement calculators
-11. **Admin auth is weak** - Uses URL query param key, no real admin system
-12. **Footer says 2025** - Should say 2026
-13. **Junk files** - `_ul`, `tmpclaude-*` files, backup `app-BKV00092LALO.py` should be cleaned up
-14. **No dark mode** - Would improve UX
-15. **Security** - Admin key has a hardcoded default (`cetracker2025admin`)
+### Known Issues
+1. **Database resets on deploy** — User data (including PDFs) appears to be lost when pushing to production. Needs investigation. Affected user: shanemasoncpa.
+2. **No email notifications** — Password reset generates a token but doesn't email it (user must use the direct link)
+3. **Certificate PDFs stored on ephemeral filesystem** — Render's filesystem resets on deploy, so uploaded PDFs are lost. Need cloud storage (S3/Cloudinary) or database storage.
 
 ## Task Board
 Update this section as tasks are assigned and completed. Use status: TODO, IN PROGRESS, DONE.
 
-### Week 1 (Priority - Core Functionality)
-| # | Task | Agent | Status | Notes |
-|---|------|-------|--------|-------|
-| 1 | Add Edit CE Record feature | Backend + Frontend | DONE | Edit route + modal with data attributes |
-| 2 | Add Password Reset flow | Backend + Frontend | DONE | Profile page with change password (email reset later) |
-| 3 | Add User Profile/Settings page | Backend + Frontend | DONE | Email update, password change, account info |
-| 4 | Fix hardcoded NAPFA cycle dates | Backend | DONE | Dynamic 2-year cycle calculation |
-| 5 | Clean up junk files | Manager | DONE | Removed _ul, tmpclaude-*, backup .py/.db |
-| 6 | Update footer year to 2026 | Frontend | DONE | Quick fix |
-| 7 | Set up test framework | QA | TODO | pytest + basic route tests |
-| 8 | Write tests for auth flows | QA | TODO | Register, login, logout |
+### Completed (Previous Sessions)
+| # | Task | Status |
+|---|------|--------|
+| 1-6 | Core functionality (edit CE, password reset, profile, NAPFA fix, cleanup, footer) | DONE |
+| 7-8 | Test framework + auth tests (39 tests) | DONE |
+| 9 | PDF export with reportlab | DONE |
+| 10 | Analytics page with Chart.js | DONE |
+| 11 | Refactor app.py into blueprints | DONE |
+| 12 | 16 designation calculators | DONE |
+| 13 | Admin auth (is_admin + decorator) | DONE |
+| 14 | Dark mode toggle | DONE |
+| 15 | Full QA pass | DONE |
+| 16 | Deploy and verify on Render | DONE |
+| 17 | Fix CPA state dropdown bug on registration | DONE |
+| 18 | CSV importer for historical CE records | DONE |
 
-### Week 2 (Polish & Features)
+### Current Sprint — ACTIVE TASKS
 | # | Task | Agent | Status | Notes |
 |---|------|-------|--------|-------|
-| 9 | Add PDF export | Backend + Frontend | TODO | Using reportlab or weasyprint |
-| 10 | Add reporting/analytics page | Backend + Frontend | TODO | Charts, category breakdown |
-| 11 | Refactor app.py into blueprints | Backend | TODO | auth, ce_records, admin, designations |
-| 12 | Add more designation calculators | Backend | TODO | CFA, CPWA, CLU at minimum |
-| 13 | Improve admin auth | Backend | TODO | Proper admin role on User model |
-| 14 | Add dark mode toggle | Frontend | TODO | CSS variables approach |
-| 15 | Full QA pass | QA | TODO | Test all features end-to-end |
-| 16 | Deploy and verify on Render | Manager | TODO | Final production check |
+| 19 | Investigate database reset issue on Render deploys | Backend | TODO | Why is user data being lost? Check if db.create_all() or migrations are dropping tables. Check Render PostgreSQL persistence. User affected: shanemasoncpa |
+| 20 | Add CSV import test coverage | QA | TODO | Write tests for /import_ce route: valid CSV, missing columns, duplicate detection, bad dates, empty file |
+| 21 | Improve mobile responsiveness of dashboard | Frontend | TODO | Test dashboard, modals, and import modal on small screens. Fix any overflow/layout issues. Check that the header-actions buttons wrap nicely on mobile. |
+| 22 | Investigate certificate PDF persistence | Backend | TODO | Render's ephemeral filesystem loses uploaded files on redeploy. Research options: store PDFs as BLOBs in PostgreSQL, or use external storage. Document findings — do NOT implement yet, just report back. |
 
 ## Conventions
 - **Python**: Follow PEP 8, use type hints for new functions
