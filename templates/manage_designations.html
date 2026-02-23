@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Designations - CE Tracker{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="form-card">
+        <h1>Manage Your Designations</h1>
+        
+        <div class="current-designations">
+            <h2>Your Current Designations</h2>
+            {% if current_designations %}
+            <div class="designation-list">
+                {% for designation, user_designation in current_designations.items() %}
+                <div class="designation-badge">
+                    <span class="designation-name">{{ designation }}</span>
+                    {% if designation == 'CFP' and user_designation.birth_month %}
+                    <span class="designation-info">Birth Month: {{ user_designation.birth_month }}</span>
+                    {% endif %}
+                    {% if designation == 'CPA' and user_designation.state %}
+                    <span class="designation-info">State: {{ user_designation.state }}</span>
+                    {% endif %}
+                    <form method="POST" action="{{ url_for('manage_designations') }}" style="display: inline;">
+                        <input type="hidden" name="action" value="remove">
+                        <input type="hidden" name="designation_id" value="{{ user_designation.id }}">
+                        <button type="submit" class="btn btn-danger btn-sm" 
+                                onclick="return confirm('Are you sure you want to remove the {{ designation }} designation?');">
+                            Remove
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-message">You don't have any designations yet. Add one below!</p>
+            {% endif %}
+        </div>
+        
+        <div class="add-designation">
+            <h2>Add a Designation</h2>
+            <form method="POST" action="{{ url_for('manage_designations') }}" class="ce-form">
+                <input type="hidden" name="action" value="add">
+                
+                <div class="form-group">
+                    <label for="designation">Select Designation</label>
+                    <select id="designation" name="designation" required onchange="toggleCfpBirthMonthSelect(this)">
+                        <option value="">Choose a designation...</option>
+                        {% for designation in ['CFP', 'CFA', 'CPA', 'CLE', 'CLU', 'EA', 'ChFC', 'CIMA', 'CIMC', 'CPWA', 'CRPS', 'RICP', 'CDFA', 'AIF', 'IAR', 'CEP', 'ECA'] %}
+                        {% if designation not in current_designations %}
+                        <option value="{{ designation }}">{{ designation }}{% if designation == 'CFP' %}®{% endif %}{% if designation in ['ChFC', 'CIMA', 'CIMC', 'CPWA', 'CRPS', 'RICP', 'CDFA', 'AIF'] %}®{% endif %}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div id="cfp-birth-month-group" class="form-group" style="display: none;">
+                    <label for="cfp_birth_month">Birth Month (Required for CFP) *</label>
+                    <select id="cfp_birth_month" name="cfp_birth_month">
+                        <option value="">Select Month</option>
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                    <small>CFP reporting periods are based on your birth month</small>
+                </div>
+                
+                <div id="cpa-state-group" class="form-group" style="display: none;">
+                    <label for="cpa_state">State (Required for CPA) *</label>
+                    <select id="cpa_state" name="cpa_state">
+                        <option value="">Select State</option>
+                        <option value="AL">Alabama</option>
+                        <option value="AK">Alaska</option>
+                        <option value="AZ">Arizona</option>
+                        <option value="AR">Arkansas</option>
+                        <option value="CA">California</option>
+                        <option value="CO">Colorado</option>
+                        <option value="CT">Connecticut</option>
+                        <option value="DE">Delaware</option>
+                        <option value="FL">Florida</option>
+                        <option value="GA">Georgia</option>
+                        <option value="HI">Hawaii</option>
+                        <option value="ID">Idaho</option>
+                        <option value="IL">Illinois</option>
+                        <option value="IN">Indiana</option>
+                        <option value="IA">Iowa</option>
+                        <option value="KS">Kansas</option>
+                        <option value="KY">Kentucky</option>
+                        <option value="LA">Louisiana</option>
+                        <option value="ME">Maine</option>
+                        <option value="MD">Maryland</option>
+                        <option value="MA">Massachusetts</option>
+                        <option value="MI">Michigan</option>
+                        <option value="MN">Minnesota</option>
+                        <option value="MS">Mississippi</option>
+                        <option value="MO">Missouri</option>
+                        <option value="MT">Montana</option>
+                        <option value="NE">Nebraska</option>
+                        <option value="NV">Nevada</option>
+                        <option value="NH">New Hampshire</option>
+                        <option value="NJ">New Jersey</option>
+                        <option value="NM">New Mexico</option>
+                        <option value="NY">New York</option>
+                        <option value="NC">North Carolina</option>
+                        <option value="ND">North Dakota</option>
+                        <option value="OH">Ohio</option>
+                        <option value="OK">Oklahoma</option>
+                        <option value="OR">Oregon</option>
+                        <option value="PA">Pennsylvania</option>
+                        <option value="RI">Rhode Island</option>
+                        <option value="SC">South Carolina</option>
+                        <option value="SD">South Dakota</option>
+                        <option value="TN">Tennessee</option>
+                        <option value="TX">Texas</option>
+                        <option value="UT">Utah</option>
+                        <option value="VT">Vermont</option>
+                        <option value="VA">Virginia</option>
+                        <option value="WA">Washington</option>
+                        <option value="WV">West Virginia</option>
+                        <option value="WI">Wisconsin</option>
+                        <option value="WY">Wyoming</option>
+                        <option value="DC">District of Columbia</option>
+                    </select>
+                    <small>CPA CE requirements vary by state. Select the state where you are licensed.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>CE Requirements Reference</label>
+                    <div class="designation-requirements">
+                        {% for designation, requirements in designation_requirements.items() %}
+                        <div class="requirement-item">
+                            <strong>{{ designation }}:</strong>
+                            <span class="tooltip-icon" data-tooltip="{{ requirements }}">ℹ️</span>
+                            <div class="requirement-text">{{ requirements[:100] }}...</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Designation</button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleCfpBirthMonthSelect(select) {
+        const cfpGroup = document.getElementById('cfp-birth-month-group');
+        const cfpInput = document.getElementById('cfp_birth_month');
+        const cpaGroup = document.getElementById('cpa-state-group');
+        const cpaInput = document.getElementById('cpa_state');
+        
+        if (select.value === 'CFP') {
+            cfpGroup.style.display = 'block';
+            cfpInput.required = true;
+            cpaGroup.style.display = 'none';
+            cpaInput.required = false;
+            cpaInput.value = '';
+        } else if (select.value === 'CPA') {
+            cpaGroup.style.display = 'block';
+            cpaInput.required = true;
+            cfpGroup.style.display = 'none';
+            cfpInput.required = false;
+            cfpInput.value = '';
+        } else {
+            cfpGroup.style.display = 'none';
+            cfpInput.required = false;
+            cfpInput.value = '';
+            cpaGroup.style.display = 'none';
+            cpaInput.required = false;
+            cpaInput.value = '';
+        }
+    }
+</script>
+{% endblock %}
+

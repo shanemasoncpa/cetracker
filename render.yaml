@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ce-tracker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SECRET_KEY
+        value: bdaa78c7294b5217907180ac0ea4f5006c3de3ab263da9b0ba04758aea293d35
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ce-tracker-db
+          property: connectionString
+
+databases:
+  - name: ce-tracker-db
+    databaseName: ce_tracker
+    user: ce_tracker_user
+    plan: free
+

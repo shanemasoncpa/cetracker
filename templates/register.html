@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Register - CE Tracker{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h1>Register</h1>
+        <form method="POST" action="{{ url_for('register') }}" class="auth-form" id="registerForm" onsubmit="return validateForm()">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus value="{{ form_data.username if form_data else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required value="{{ form_data.email if form_data else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required minlength="6">
+                <small>Must be at least 6 characters</small>
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="6">
+            </div>
+            
+            <div class="form-group">
+                <label>Professional Designations (Optional)</label>
+                <div class="designation-checkboxes">
+                    {% for designation in ['CFP', 'CFA', 'CPA', 'CLE', 'CLU', 'EA', 'ChFC', 'CIMA', 'CIMC', 'CPWA', 'CRPS', 'RICP', 'CDFA', 'AIF', 'IAR', 'CEP', 'ECA'] %}
+                    <div class="designation-item">
+                        <label class="designation-label">
+                            <input type="checkbox" name="designations" value="{{ designation }}" 
+                                   onchange="toggleCfpBirthMonth(this, '{{ designation }}')"
+                                   {% if form_data and designation in form_data.designations %}checked{% endif %}>
+                            <span>{{ designation }}{% if designation == 'CFP' %}®{% endif %}{% if designation in ['ChFC', 'CIMA', 'CIMC', 'CPWA', 'CRPS', 'RICP', 'CDFA', 'AIF'] %}®{% endif %}</span>
+                            <span class="tooltip-icon" data-tooltip="{{ designation_requirements[designation] }}">ℹ️</span>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div id="cfp-birth-month-group" class="form-group" style="display: {% if form_data and 'CFP' in form_data.designations %}block{% else %}none{% endif %}; margin-top: 1rem;">
+                    <label for="cfp_birth_month">Birth Month (Required for CFP) *</label>
+                    <select id="cfp_birth_month" name="cfp_birth_month">
+                        <option value="">Select Month</option>
+                        {% for i in range(1, 13) %}
+                        <option value="{{ i }}" {% if form_data and form_data.cfp_birth_month == i|string %}selected{% endif %}>
+                            {% if i == 1 %}January{% elif i == 2 %}February{% elif i == 3 %}March{% elif i == 4 %}April{% elif i == 5 %}May{% elif i == 6 %}June{% elif i == 7 %}July{% elif i == 8 %}August{% elif i == 9 %}September{% elif i == 10 %}October{% elif i == 11 %}November{% elif i == 12 %}December{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small>CFP reporting periods are based on your birth month</small>
+                </div>
+                <div id="cpa-state-group" class="form-group" style="display: {% if form_data and 'CPA' in form_data.designations %}block{% else %}none{% endif %}; margin-top: 1rem;">
+                    <label for="cpa_state">State (Required for CPA) *</label>
+                    <select id="cpa_state" name="cpa_state">
+                        <option value="">Select State</option>
+                        <option value="AL" {% if form_data and form_data.cpa_state == 'AL' %}selected{% endif %}>Alabama</option>
+                        <option value="AK" {% if form_data and form_data.cpa_state == 'AK' %}selected{% endif %}>Alaska</option>
+                        <option value="AZ" {% if form_data and form_data.cpa_state == 'AZ' %}selected{% endif %}>Arizona</option>
+                        <option value="AR" {% if form_data and form_data.cpa_state == 'AR' %}selected{% endif %}>Arkansas</option>
+                        <option value="CA" {% if form_data and form_data.cpa_state == 'CA' %}selected{% endif %}>California</option>
+                        <option value="CO" {% if form_data and form_data.cpa_state == 'CO' %}selected{% endif %}>Colorado</option>
+                        <option value="CT" {% if form_data and form_data.cpa_state == 'CT' %}selected{% endif %}>Connecticut</option>
+                        <option value="DE" {% if form_data and form_data.cpa_state == 'DE' %}selected{% endif %}>Delaware</option>
+                        <option value="FL" {% if form_data and form_data.cpa_state == 'FL' %}selected{% endif %}>Florida</option>
+                        <option value="GA" {% if form_data and form_data.cpa_state == 'GA' %}selected{% endif %}>Georgia</option>
+                        <option value="HI" {% if form_data and form_data.cpa_state == 'HI' %}selected{% endif %}>Hawaii</option>
+                        <option value="ID" {% if form_data and form_data.cpa_state == 'ID' %}selected{% endif %}>Idaho</option>
+                        <option value="IL" {% if form_data and form_data.cpa_state == 'IL' %}selected{% endif %}>Illinois</option>
+                        <option value="IN" {% if form_data and form_data.cpa_state == 'IN' %}selected{% endif %}>Indiana</option>
+                        <option value="IA" {% if form_data and form_data.cpa_state == 'IA' %}selected{% endif %}>Iowa</option>
+                        <option value="KS" {% if form_data and form_data.cpa_state == 'KS' %}selected{% endif %}>Kansas</option>
+                        <option value="KY" {% if form_data and form_data.cpa_state == 'KY' %}selected{% endif %}>Kentucky</option>
+                        <option value="LA" {% if form_data and form_data.cpa_state == 'LA' %}selected{% endif %}>Louisiana</option>
+                        <option value="ME" {% if form_data and form_data.cpa_state == 'ME' %}selected{% endif %}>Maine</option>
+                        <option value="MD" {% if form_data and form_data.cpa_state == 'MD' %}selected{% endif %}>Maryland</option>
+                        <option value="MA" {% if form_data and form_data.cpa_state == 'MA' %}selected{% endif %}>Massachusetts</option>
+                        <option value="MI" {% if form_data and form_data.cpa_state == 'MI' %}selected{% endif %}>Michigan</option>
+                        <option value="MN" {% if form_data and form_data.cpa_state == 'MN' %}selected{% endif %}>Minnesota</option>
+                        <option value="MS" {% if form_data and form_data.cpa_state == 'MS' %}selected{% endif %}>Mississippi</option>
+                        <option value="MO" {% if form_data and form_data.cpa_state == 'MO' %}selected{% endif %}>Missouri</option>
+                        <option value="MT" {% if form_data and form_data.cpa_state == 'MT' %}selected{% endif %}>Montana</option>
+                        <option value="NE" {% if form_data and form_data.cpa_state == 'NE' %}selected{% endif %}>Nebraska</option>
+                        <option value="NV" {% if form_data and form_data.cpa_state == 'NV' %}selected{% endif %}>Nevada</option>
+                        <option value="NH" {% if form_data and form_data.cpa_state == 'NH' %}selected{% endif %}>New Hampshire</option>
+                        <option value="NJ" {% if form_data and form_data.cpa_state == 'NJ' %}selected{% endif %}>New Jersey</option>
+                        <option value="NM" {% if form_data and form_data.cpa_state == 'NM' %}selected{% endif %}>New Mexico</option>
+                        <option value="NY" {% if form_data and form_data.cpa_state == 'NY' %}selected{% endif %}>New York</option>
+                        <option value="NC" {% if form_data and form_data.cpa_state == 'NC' %}selected{% endif %}>North Carolina</option>
+                        <option value="ND" {% if form_data and form_data.cpa_state == 'ND' %}selected{% endif %}>North Dakota</option>
+                        <option value="OH" {% if form_data and form_data.cpa_state == 'OH' %}selected{% endif %}>Ohio</option>
+                        <option value="OK" {% if form_data and form_data.cpa_state == 'OK' %}selected{% endif %}>Oklahoma</option>
+                        <option value="OR" {% if form_data and form_data.cpa_state == 'OR' %}selected{% endif %}>Oregon</option>
+                        <option value="PA" {% if form_data and form_data.cpa_state == 'PA' %}selected{% endif %}>Pennsylvania</option>
+                        <option value="RI" {% if form_data and form_data.cpa_state == 'RI' %}selected{% endif %}>Rhode Island</option>
+                        <option value="SC" {% if form_data and form_data.cpa_state == 'SC' %}selected{% endif %}>South Carolina</option>
+                        <option value="SD" {% if form_data and form_data.cpa_state == 'SD' %}selected{% endif %}>South Dakota</option>
+                        <option value="TN" {% if form_data and form_data.cpa_state == 'TN' %}selected{% endif %}>Tennessee</option>
+                        <option value="TX" {% if form_data and form_data.cpa_state == 'TX' %}selected{% endif %}>Texas</option>
+                        <option value="UT" {% if form_data and form_data.cpa_state == 'UT' %}selected{% endif %}>Utah</option>
+                        <option value="VT" {% if form_data and form_data.cpa_state == 'VT' %}selected{% endif %}>Vermont</option>
+                        <option value="VA" {% if form_data and form_data.cpa_state == 'VA' %}selected{% endif %}>Virginia</option>
+                        <option value="WA" {% if form_data and form_data.cpa_state == 'WA' %}selected{% endif %}>Washington</option>
+                        <option value="WV" {% if form_data and form_data.cpa_state == 'WV' %}selected{% endif %}>West Virginia</option>
+                        <option value="WI" {% if form_data and form_data.cpa_state == 'WI' %}selected{% endif %}>Wisconsin</option>
+                        <option value="WY" {% if form_data and form_data.cpa_state == 'WY' %}selected{% endif %}>Wyoming</option>
+                        <option value="DC" {% if form_data and form_data.cpa_state == 'DC' %}selected{% endif %}>District of Columbia</option>
+                    </select>
+                    <small>CPA CE requirements vary by state. Select the state where you are licensed.</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="designation-label">
+                    <input type="checkbox" name="is_napfa_member" id="is_napfa_member" 
+                           onchange="toggleNapfaJoinDate()"
+                           {% if form_data and form_data.is_napfa_member %}checked{% endif %}>
+                    <span>I am a NAPFA-Registered Financial Advisor</span>
+                </label>
+                <div id="napfa-join-date-group" class="form-group" style="display: {% if form_data and form_data.is_napfa_member %}block{% else %}none{% endif %}; margin-top: 1rem;">
+                    <label for="napfa_join_date">NAPFA Join Date *</label>
+                    <input type="date" id="napfa_join_date" name="napfa_join_date" value="{{ form_data.napfa_join_date if form_data else '' }}">
+                    <small>Required to calculate your CE requirements. Based on <a href="https://www.napfa.org/member-resources/ce-guidelines" target="_blank">NAPFA CE Guidelines</a>.</small>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Register</button>
+        </form>
+        <p class="auth-link">
+            Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+        </p>
+    </div>
+</div>
+
+<script>
+    function validateForm() {
+        const form = document.getElementById('registerForm');
+        const designations = Array.from(form.querySelectorAll('input[name="designations"]:checked')).map(cb => cb.value);
+        const isNapfaMember = document.getElementById('is_napfa_member').checked;
+        
+        // Validate CFP birth month if CFP is selected
+        if (designations.includes('CFP')) {
+            const cfpBirthMonth = document.getElementById('cfp_birth_month').value;
+            if (!cfpBirthMonth) {
+                alert('Birth month is required for CFP designation.');
+                document.getElementById('cfp_birth_month').focus();
+                return false;
+            }
+        }
+        
+        // Validate CPA state if CPA is selected
+        if (designations.includes('CPA')) {
+            const cpaState = document.getElementById('cpa_state').value;
+            if (!cpaState) {
+                alert('State is required for CPA designation.');
+                document.getElementById('cpa_state').focus();
+                return false;
+            }
+        }
+        
+        // Validate NAPFA join date if NAPFA member
+        if (isNapfaMember) {
+            const napfaJoinDate = document.getElementById('napfa_join_date').value;
+            if (!napfaJoinDate) {
+                alert('NAPFA join date is required if you are a NAPFA member.');
+                document.getElementById('napfa_join_date').focus();
+                return false;
+            }
+        }
+        
+        // Validate password match
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        if (password !== confirmPassword) {
+            alert('Passwords do not match.');
+            document.getElementById('confirm_password').focus();
+            return false;
+        }
+        
+        return true;
+    }
+    
+    function toggleCfpBirthMonth(checkbox, designation) {
+        const cfpGroup = document.getElementById('cfp-birth-month-group');
+        const cfpInput = document.getElementById('cfp_birth_month');
+        const cpaGroup = document.getElementById('cpa-state-group');
+        const cpaInput = document.getElementById('cpa_state');
+        
+        // Handle CFP designation
+        if (designation === 'CFP') {
+            if (checkbox.checked) {
+                cfpGroup.style.display = 'block';
+                cfpInput.required = true;
+            } else {
+                // Check if any other CFP checkbox is checked
+                const cfpCheckboxes = document.querySelectorAll('input[name="designations"][value="CFP"]');
+                let hasCfp = false;
+                cfpCheckboxes.forEach(cb => {
+                    if (cb.checked && cb !== checkbox) hasCfp = true;
+                });
+                
+                if (!hasCfp) {
+                    cfpGroup.style.display = 'none';
+                    cfpInput.required = false;
+                    cfpInput.value = '';
+                }
+            }
+        }
+        
+        // Handle CPA designation
+        if (designation === 'CPA') {
+            if (checkbox.checked) {
+                cpaGroup.style.display = 'block';
+                cpaInput.required = true;
+            } else {
+                // Check if any other CPA checkbox is checked
+                const cpaCheckboxes = document.querySelectorAll('input[name="designations"][value="CPA"]');
+                let hasCpa = false;
+                cpaCheckboxes.forEach(cb => {
+                    if (cb.checked && cb !== checkbox) hasCpa = true;
+                });
+                
+                if (!hasCpa) {
+                    cpaGroup.style.display = 'none';
+                    cpaInput.required = false;
+                    cpaInput.value = '';
+                }
+            }
+        }
+    }
+    
+    function toggleNapfaJoinDate() {
+        const checkbox = document.getElementById('is_napfa_member');
+        const dateGroup = document.getElementById('napfa-join-date-group');
+        const dateInput = document.getElementById('napfa_join_date');
+        
+        if (checkbox.checked) {
+            dateGroup.style.display = 'block';
+            dateInput.required = true;
+        } else {
+            dateGroup.style.display = 'none';
+            dateInput.required = false;
+            dateInput.value = '';
+        }
+    }
+    
+    // Initialize form state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check initial state of checkboxes and show/hide fields accordingly
+        const cfpCheckboxes = document.querySelectorAll('input[name="designations"][value="CFP"]');
+        const cpaCheckboxes = document.querySelectorAll('input[name="designations"][value="CPA"]');
+        
+        // Check if any CFP checkbox is checked
+        let hasCfp = false;
+        cfpCheckboxes.forEach(cb => {
+            if (cb.checked) {
+                hasCfp = true;
+                const cfpGroup = document.getElementById('cfp-birth-month-group');
+                const cfpInput = document.getElementById('cfp_birth_month');
+                if (cfpGroup) cfpGroup.style.display = 'block';
+                if (cfpInput) cfpInput.required = true;
+            }
+        });
+        
+        // Check if any CPA checkbox is checked
+        let hasCpa = false;
+        cpaCheckboxes.forEach(cb => {
+            if (cb.checked) {
+                hasCpa = true;
+                const cpaGroup = document.getElementById('cpa-state-group');
+                const cpaInput = document.getElementById('cpa_state');
+                if (cpaGroup) cpaGroup.style.display = 'block';
+                if (cpaInput) cpaInput.required = true;
+            }
+        });
+    });
+</script>
+{% endblock %}
+
