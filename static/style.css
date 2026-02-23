@@ -1400,6 +1400,82 @@ body {
     max-width: 550px;
 }
 
+/* Import CSV Modal */
+.import-modal {
+    max-width: 650px;
+}
+
+.import-intro {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.import-format-info {
+    background: var(--bg-color, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.import-format-info h4 {
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.import-format-info p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+}
+
+.import-format-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.import-format-table th,
+.import-format-table td {
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.import-format-table th {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.import-format-table td {
+    color: var(--text-secondary);
+}
+
+.import-format-info small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.import-tip {
+    background: #eff6ff;
+    border-left: 3px solid var(--primary-color);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .import-format-info {
+    background: var(--bg-color);
+}
+
+[data-theme="dark"] .import-tip {
+    background: #1e293b;
+}
+
 .feedback-intro {
     color: var(--text-secondary);
     margin-bottom: 1.5rem;

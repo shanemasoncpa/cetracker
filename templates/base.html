@@ -152,26 +152,40 @@
             });
         });
         
-        // Toggle CFP birth month field
+        // Toggle CFP birth month / CPA state fields
         function toggleCfpBirthMonth(checkbox, designation) {
             const cfpGroup = document.getElementById('cfp-birth-month-group');
             const cfpInput = document.getElementById('cfp_birth_month');
-            
-            if (designation === 'CFP' && checkbox.checked) {
-                cfpGroup.style.display = 'block';
-                cfpInput.required = true;
-            } else if (designation === 'CFP' && !checkbox.checked) {
-                // Check if any other CFP checkbox is checked
-                const cfpCheckboxes = document.querySelectorAll('input[name="designations"][value="CFP"]');
-                let hasCfp = false;
-                cfpCheckboxes.forEach(cb => {
-                    if (cb.checked) hasCfp = true;
-                });
-                
-                if (!hasCfp) {
-                    cfpGroup.style.display = 'none';
-                    cfpInput.required = false;
-                    cfpInput.value = '';
+            const cpaGroup = document.getElementById('cpa-state-group');
+            const cpaInput = document.getElementById('cpa_state');
+
+            if (designation === 'CFP') {
+                if (checkbox.checked) {
+                    if (cfpGroup) cfpGroup.style.display = 'block';
+                    if (cfpInput) cfpInput.required = true;
+                } else {
+                    const cfpCheckboxes = document.querySelectorAll('input[name="designations"][value="CFP"]');
+                    let hasCfp = false;
+                    cfpCheckboxes.forEach(cb => { if (cb.checked) hasCfp = true; });
+                    if (!hasCfp) {
+                        if (cfpGroup) cfpGroup.style.display = 'none';
+                        if (cfpInput) { cfpInput.required = false; cfpInput.value = ''; }
+                    }
+                }
+            }
+
+            if (designation === 'CPA') {
+                if (checkbox.checked) {
+                    if (cpaGroup) cpaGroup.style.display = 'block';
+                    if (cpaInput) cpaInput.required = true;
+                } else {
+                    const cpaCheckboxes = document.querySelectorAll('input[name="designations"][value="CPA"]');
+                    let hasCpa = false;
+                    cpaCheckboxes.forEach(cb => { if (cb.checked) hasCpa = true; });
+                    if (!hasCpa) {
+                        if (cpaGroup) cpaGroup.style.display = 'none';
+                        if (cpaInput) { cpaInput.required = false; cpaInput.value = ''; }
+                    }
                 }
             }
         }

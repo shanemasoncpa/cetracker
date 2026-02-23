@@ -8,6 +8,7 @@
         <h1>Your CE Records</h1>
         <div class="header-actions">
             <button type="button" class="btn btn-primary" onclick="openAddCEModal()">+ Add New CE</button>
+            <button type="button" class="btn btn-secondary" onclick="openImportModal()">📤 Import CSV</button>
             <a href="{{ url_for('ce_records.export_ce', category=filter_category) }}" class="btn btn-secondary">📥 Export CSV</a>
             <a href="{{ url_for('ce_records.export_pdf', category=filter_category) }}" class="btn btn-secondary">📄 Export PDF</a>
         </div>
@@ -529,7 +530,149 @@
     </div>
 </div>
 
+<!-- Import CSV Modal -->
+<div id="importCSVModal" class="modal">
+    <div class="modal-content import-modal">
+        <div class="modal-header">
+            <h2>Import CE Records from CSV</h2>
+            <button type="button" class="modal-close" onclick="closeImportModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('ce_records.import_ce') }}" enctype="multipart/form-data" id="importCSVForm">
+            <div class="modal-body">
+                <p class="import-intro">Upload a CSV file to bulk import your CE records. This is perfect for migrating historical data.</p>
+
+                <div class="import-format-info">
+                    <h4>Expected CSV Format</h4>
+                    <p>Your CSV should have a header row with these columns (only Title and Hours are required):</p>
+                    <table class="import-format-table">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Required</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Date Completed</td><td>No*</td><td>2025-06-15 or 06/15/2025</td></tr>
+                            <tr><td>Title</td><td>Yes</td><td>Advanced Tax Planning</td></tr>
+                            <tr><td>Provider</td><td>No</td><td>AICPA</td></tr>
+                            <tr><td>Category</td><td>No</td><td>Taxation</td></tr>
+                            <tr><td>Hours</td><td>Yes</td><td>2.5</td></tr>
+                            <tr><td>Description</td><td>No</td><td>Annual update course</td></tr>
+                        </tbody>
+                    </table>
+                    <small>*If no date is provided, today's date will be used. Duplicate records (same title, date, and hours) will be skipped automatically.</small>
+                </div>
+
+                <div class="import-tip">
+                    <strong>Tip:</strong> You can export your current records as CSV first to see the exact format, then use the same format for importing.
+                </div>
+
+                <div class="form-group">
+                    <label for="csv_file">Select CSV File *</label>
+                    <div class="file-upload-area" id="import-file-upload-area">
+                        <input type="file" id="csv_file" name="csv_file" accept=".csv" required style="display: none;">
+                        <div class="file-upload-content">
+                            <svg class="file-upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="file-upload-text">Drag and drop your CSV file here, or <span class="file-upload-link">click to browse</span></p>
+                            <p class="file-upload-hint">Only .csv files are accepted</p>
+                        </div>
+                        <div class="file-upload-preview" id="import-file-preview" style="display: none;">
+                            <span class="file-name" id="import-file-name"></span>
+                            <button type="button" class="file-remove" id="import-file-remove">&times;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Import Records</button>
+                <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    // Import CSV Modal functions
+    function openImportModal() {
+        document.getElementById('importCSVModal').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeImportModal() {
+        document.getElementById('importCSVModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+        document.getElementById('importCSVForm').reset();
+        document.getElementById('import-file-preview').style.display = 'none';
+        document.querySelector('#import-file-upload-area .file-upload-content').style.display = 'block';
+    }
+
+    // Import file upload handling
+    (function() {
+        var fileInput = document.getElementById('csv_file');
+        var uploadArea = document.getElementById('import-file-upload-area');
+        var filePreview = document.getElementById('import-file-preview');
+        var fileName = document.getElementById('import-file-name');
+        var fileRemove = document.getElementById('import-file-remove');
+        var uploadContent = uploadArea.querySelector('.file-upload-content');
+
+        uploadArea.addEventListener('click', function(e) {
+            if (e.target === uploadArea || e.target.closest('.file-upload-content')) {
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                if (!file.name.toLowerCase().endsWith('.csv')) {
+                    alert('Please select a CSV file.');
+                    fileInput.value = '';
+                    return;
+                }
+                fileName.textContent = file.name;
+                uploadContent.style.display = 'none';
+                filePreview.style.display = 'flex';
+            }
+        });
+
+        fileRemove.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fileInput.value = '';
+            filePreview.style.display = 'none';
+            uploadContent.style.display = 'block';
+        });
+
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            var file = e.dataTransfer.files[0];
+            if (file) {
+                if (!file.name.toLowerCase().endsWith('.csv')) {
+                    alert('Please drop a CSV file.');
+                    return;
+                }
+                fileInput.files = e.dataTransfer.files;
+                fileName.textContent = file.name;
+                uploadContent.style.display = 'none';
+                filePreview.style.display = 'flex';
+            }
+        });
+    })();
+
     // Modal functions
     function openAddCEModal() {
         document.getElementById('addCEModal').style.display = 'block';
@@ -546,15 +689,19 @@
         document.querySelector('#modal-file-upload-area .file-upload-content').style.display = 'block';
     }
 
-    // Close modals when clicking outside (handles both Add and Edit modals)
+    // Close modals when clicking outside
     window.onclick = function(event) {
         var addModal = document.getElementById('addCEModal');
         var editModal = document.getElementById('editCEModal');
+        var importModal = document.getElementById('importCSVModal');
         if (event.target === addModal) {
             closeAddCEModal();
         }
         if (event.target === editModal) {
             closeEditCEModal();
+        }
+        if (event.target === importModal) {
+            closeImportModal();
         }
     }
 

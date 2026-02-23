@@ -244,6 +244,143 @@ def toggle_napfa_tracking():
     return redirect(url_for('ce_records.dashboard'))
 
 
+@ce_bp.route('/import_ce', methods=['POST'])
+def import_ce():
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    if 'csv_file' not in request.files:
+        flash('No file selected.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    file = request.files['csv_file']
+    if file.filename == '':
+        flash('No file selected.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    if not file.filename.lower().endswith('.csv'):
+        flash('Please upload a CSV file.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    try:
+        content = file.read().decode('utf-8-sig')
+        reader = csv.DictReader(io.StringIO(content))
+
+        # Normalize header names (strip whitespace, lowercase for matching)
+        if not reader.fieldnames:
+            flash('CSV file is empty or has no headers.', 'error')
+            return redirect(url_for('ce_records.dashboard'))
+
+        field_map = {}
+        for f in reader.fieldnames:
+            normalized = f.strip().lower().replace('_', ' ')
+            if normalized in ('date completed', 'date', 'completion date'):
+                field_map['date_completed'] = f
+            elif normalized in ('title', 'course title', 'course name', 'name'):
+                field_map['title'] = f
+            elif normalized in ('provider', 'sponsor', 'source'):
+                field_map['provider'] = f
+            elif normalized in ('category', 'type', 'subject'):
+                field_map['category'] = f
+            elif normalized in ('hours', 'credit hours', 'credits', 'ce hours', 'cpe hours'):
+                field_map['hours'] = f
+            elif normalized in ('description', 'notes', 'details'):
+                field_map['description'] = f
+
+        if 'title' not in field_map or 'hours' not in field_map:
+            flash('CSV must have at least "Title" and "Hours" columns. Found columns: ' + ', '.join(reader.fieldnames), 'error')
+            return redirect(url_for('ce_records.dashboard'))
+
+        imported = 0
+        skipped = 0
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            title = row.get(field_map.get('title', ''), '').strip()
+            hours_str = row.get(field_map.get('hours', ''), '').strip()
+            date_str = row.get(field_map.get('date_completed', ''), '').strip()
+            provider = row.get(field_map.get('provider', ''), '').strip()
+            category = row.get(field_map.get('category', ''), '').strip()
+            description = row.get(field_map.get('description', ''), '').strip()
+
+            if not title and not hours_str:
+                continue  # skip blank rows
+
+            if not title:
+                errors.append(f'Row {row_num}: Missing title')
+                skipped += 1
+                continue
+
+            try:
+                hours = float(hours_str)
+                if hours <= 0:
+                    errors.append(f'Row {row_num}: Hours must be positive ("{title}")')
+                    skipped += 1
+                    continue
+            except (ValueError, TypeError):
+                errors.append(f'Row {row_num}: Invalid hours "{hours_str}" for "{title}"')
+                skipped += 1
+                continue
+
+            date_completed = None
+            if date_str:
+                for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y', '%m/%d/%y', '%d/%m/%Y', '%Y/%m/%d'):
+                    try:
+                        date_completed = datetime.strptime(date_str, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                if not date_completed:
+                    errors.append(f'Row {row_num}: Could not parse date "{date_str}" for "{title}", using today')
+                    date_completed = datetime.now().date()
+            else:
+                date_completed = datetime.now().date()
+
+            # Check for duplicates (same title, date, and hours for this user)
+            existing = CERecord.query.filter_by(
+                user_id=session['user_id'],
+                title=title,
+                date_completed=date_completed,
+                hours=hours
+            ).first()
+
+            if existing:
+                skipped += 1
+                errors.append(f'Row {row_num}: Duplicate skipped ("{title}" on {date_completed})')
+                continue
+
+            record = CERecord(
+                user_id=session['user_id'],
+                title=title,
+                provider=provider,
+                hours=hours,
+                date_completed=date_completed,
+                category=category,
+                description=description
+            )
+            db.session.add(record)
+            imported += 1
+
+        db.session.commit()
+
+        msg = f'Successfully imported {imported} CE record{"s" if imported != 1 else ""}.'
+        if skipped:
+            msg += f' {skipped} row{"s" if skipped != 1 else ""} skipped.'
+        flash(msg, 'success')
+
+        if errors:
+            flash('Import notes: ' + '; '.join(errors[:10]) + ('...' if len(errors) > 10 else ''), 'info')
+
+    except UnicodeDecodeError:
+        flash('Could not read the file. Please ensure it is a UTF-8 encoded CSV.', 'error')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error importing CSV: {str(e)}', 'error')
+
+    return redirect(url_for('ce_records.dashboard'))
+
+
 @ce_bp.route('/export_ce')
 def export_ce():
     if 'user_id' not in session:
