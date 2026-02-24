@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Review Import — CE Tracker{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Review CSV Import</h1>
+        <p class="import-preview-subtitle">Review the records below before importing. You can edit fields, remove rows, or go back to upload a different file.</p>
+    </div>
+
+    {% if errors %}
+    <div class="import-preview-errors">
+        <h4>Skipped Rows</h4>
+        <ul>
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="import-preview-summary" id="previewSummary">
+        <span id="summaryCount">{{ rows|length }} record{{ 's' if rows|length != 1 else '' }}</span> ready to import
+        <span class="import-preview-hours" id="summaryHours">{{ "%.1f"|format(total_hours) }} total hours</span>
+    </div>
+
+    <div class="import-preview-table-wrap">
+        <table class="ce-table import-preview-table" id="previewTable">
+            <thead>
+                <tr>
+                    <th class="preview-check-col"><input type="checkbox" id="selectAll" checked title="Select all"></th>
+                    <th>Date</th>
+                    <th>Title</th>
+                    <th>Provider</th>
+                    <th>Category</th>
+                    <th>Hours</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr class="preview-row{% if row.is_duplicate %} preview-row-duplicate{% endif %}" data-index="{{ loop.index0 }}">
+                    <td class="preview-check-col">
+                        <input type="checkbox" class="row-checkbox" {% if not row.is_duplicate %}checked{% endif %}>
+                    </td>
+                    <td><input type="date" class="preview-input" name="date_completed" value="{{ row.date_completed }}"></td>
+                    <td><input type="text" class="preview-input preview-input-wide" name="title" value="{{ row.title }}"></td>
+                    <td><input type="text" class="preview-input" name="provider" value="{{ row.provider }}"></td>
+                    <td><input type="text" class="preview-input" name="category" value="{{ row.category }}"></td>
+                    <td><input type="number" class="preview-input preview-input-narrow" name="hours" value="{{ row.hours }}" step="0.25" min="0.25"></td>
+                    <td><input type="text" class="preview-input" name="description" value="{{ row.description }}"></td>
+                    <td class="preview-status-col">
+                        {% if row.is_duplicate %}
+                            <span class="preview-badge preview-badge-duplicate" title="This record already exists">Duplicate</span>
+                        {% elif row.warning %}
+                            <span class="preview-badge preview-badge-warning" title="{{ row.warning }}">Warning</span>
+                        {% else %}
+                            <span class="preview-badge preview-badge-ok">Ready</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="import-preview-actions">
+        <form method="POST" action="{{ url_for('ce_records.import_ce') }}" id="confirmImportForm">
+            <input type="hidden" name="confirmed_rows" id="confirmedRows">
+            <button type="submit" class="btn btn-primary" id="confirmImportBtn">Confirm Import</button>
+        </form>
+        <a href="{{ url_for('ce_records.dashboard') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</div>
+
+<script>
+(function() {
+    var table = document.getElementById('previewTable');
+    var selectAll = document.getElementById('selectAll');
+    var summaryCount = document.getElementById('summaryCount');
+    var summaryHours = document.getElementById('summaryHours');
+    var form = document.getElementById('confirmImportForm');
+
+    function getCheckedRows() {
+        var rows = [];
+        var trs = table.querySelectorAll('tbody tr.preview-row');
+        trs.forEach(function(tr) {
+            var cb = tr.querySelector('.row-checkbox');
+            if (cb && cb.checked) {
+                rows.push({
+                    date_completed: tr.querySelector('input[name="date_completed"]').value,
+                    title: tr.querySelector('input[name="title"]').value,
+                    provider: tr.querySelector('input[name="provider"]').value,
+                    category: tr.querySelector('input[name="category"]').value,
+                    hours: tr.querySelector('input[name="hours"]').value,
+                    description: tr.querySelector('input[name="description"]').value
+                });
+            }
+        });
+        return rows;
+    }
+
+    function updateSummary() {
+        var rows = getCheckedRows();
+        var totalHours = 0;
+        rows.forEach(function(r) { totalHours += parseFloat(r.hours) || 0; });
+        summaryCount.textContent = rows.length + ' record' + (rows.length !== 1 ? 's' : '');
+        summaryHours.textContent = totalHours.toFixed(1) + ' total hours';
+    }
+
+    // Select all toggle
+    selectAll.addEventListener('change', function() {
+        var checkboxes = table.querySelectorAll('.row-checkbox');
+        checkboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
+        updateSummary();
+    });
+
+    // Individual checkbox changes
+    table.addEventListener('change', function(e) {
+        if (e.target.classList.contains('row-checkbox') || e.target.tagName === 'INPUT') {
+            updateSummary();
+            // Update select-all state
+            var all = table.querySelectorAll('.row-checkbox');
+            var checked = table.querySelectorAll('.row-checkbox:checked');
+            selectAll.checked = all.length === checked.length;
+            selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+        }
+    });
+
+    // Submit confirmed rows
+    form.addEventListener('submit', function(e) {
+        var rows = getCheckedRows();
+        if (rows.length === 0) {
+            e.preventDefault();
+            alert('No records selected for import.');
+            return;
+        }
+        document.getElementById('confirmedRows').value = JSON.stringify(rows);
+    });
+
+    // Initial summary update
+    updateSummary();
+})();
+</script>
+{% endblock %}

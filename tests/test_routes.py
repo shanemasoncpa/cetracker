@@ -197,6 +197,58 @@ def _make_csv(content: str) -> io.BytesIO:
     return data
 
 
+def _import_csv_with_preview(client, csv_content, confirm=True):
+    """Helper: upload CSV, get preview, optionally confirm import.
+
+    Returns the final response (preview page if confirm=False, dashboard if confirm=True).
+    """
+    import re
+    csv_data = _make_csv(csv_content)
+    preview_response = client.post('/import_ce', data={
+        'csv_file': (csv_data, 'import.csv'),
+    }, content_type='multipart/form-data')
+
+    # If it redirected (error case), follow the redirect
+    if preview_response.status_code == 302:
+        return client.get(preview_response.headers['Location'], follow_redirects=True)
+
+    if not confirm:
+        return preview_response
+
+    # Extract row data from the preview page and build confirmed_rows JSON
+    # Parse the preview HTML for input values
+    html = preview_response.data.decode('utf-8')
+    rows = []
+    # Find each preview-row in the table
+    row_pattern = re.compile(
+        r'<tr class="preview-row[^"]*"[^>]*>.*?</tr>', re.DOTALL
+    )
+    input_pattern = re.compile(
+        r'<input[^>]*name="(\w+)"[^>]*value="([^"]*)"', re.DOTALL
+    )
+    checkbox_pattern = re.compile(
+        r'<input[^>]*class="row-checkbox"([^>]*)>', re.DOTALL
+    )
+
+    for row_match in row_pattern.finditer(html):
+        row_html = row_match.group(0)
+        # Check if checkbox is checked
+        cb_match = checkbox_pattern.search(row_html)
+        if cb_match and 'checked' in cb_match.group(0):
+            fields = {}
+            for inp_match in input_pattern.finditer(row_html):
+                fields[inp_match.group(1)] = inp_match.group(2)
+            if fields:
+                rows.append(fields)
+
+    # Post confirmed rows
+    confirm_response = client.post('/import_ce', data={
+        'confirmed_rows': json.dumps(rows),
+    }, follow_redirects=True)
+
+    return confirm_response
+
+
 def test_import_ce_requires_login(client):
     """Import route redirects to login when not authenticated."""
     csv_data = _make_csv("Title,Hours\nTest,1.0\n")
@@ -214,10 +266,7 @@ def test_import_valid_csv(logged_in_client, test_app):
         "2026-01-15,Ethics Refresher,AICPA,Ethics,2.0,Annual ethics course\n"
         "2026-02-10,Tax Update 2026,CPE Provider,Tax,4.5,Tax law changes\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    response = _import_csv_with_preview(logged_in_client, csv_content)
 
     assert b'Successfully imported 2 CE record' in response.data
 
@@ -241,10 +290,7 @@ def test_import_flexible_column_names(logged_in_client, test_app):
         "Course Name,Credits,Sponsor,Type\n"
         "Retirement Planning,3.0,NAPFA,Financial Planning\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    response = _import_csv_with_preview(logged_in_client, csv_content)
 
     assert b'Successfully imported 1 CE record' in response.data
 
@@ -298,13 +344,10 @@ def test_import_skips_duplicates(logged_in_client, test_app, sample_user):
         "Already Exists,2.0,2026-01-15\n"
         "New Course,3.0,2026-03-01\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    # Duplicates are unchecked by default in preview, so only non-dupes get confirmed
+    response = _import_csv_with_preview(logged_in_client, csv_content)
 
     assert b'Successfully imported 1 CE record' in response.data
-    assert b'1 row skipped' in response.data
 
     from models import CERecord as CR
     with test_app.app_context():
@@ -313,23 +356,27 @@ def test_import_skips_duplicates(logged_in_client, test_app, sample_user):
 
 
 def test_import_bad_date_falls_back_to_today(logged_in_client, test_app):
-    """Unparseable dates fall back to today with a warning."""
+    """Unparseable dates fall back to today with a warning shown in preview."""
     csv_content = (
         "Title,Hours,Date Completed\n"
         "Bad Date Course,1.5,not-a-date\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    # Check preview page shows warning badge
+    preview_response = _import_csv_with_preview(logged_in_client, csv_content, confirm=False)
+    assert b'Warning' in preview_response.data
 
+    # Now do a full import
+    csv_content2 = (
+        "Title,Hours,Date Completed\n"
+        "Bad Date Course 2,1.5,not-a-date\n"
+    )
+    response = _import_csv_with_preview(logged_in_client, csv_content2)
     assert b'Successfully imported 1 CE record' in response.data
-    assert b'Could not parse date' in response.data
 
     from models import CERecord
     from datetime import date as dt_date
     with test_app.app_context():
-        record = CERecord.query.filter_by(title='Bad Date Course').first()
+        record = CERecord.query.filter_by(title='Bad Date Course 2').first()
         assert record is not None
         assert record.date_completed == dt_date.today()
 
@@ -342,10 +389,7 @@ def test_import_various_date_formats(logged_in_client, test_app):
         "Course B,1.0,01-15-2026\n"
         "Course C,1.0,2026/01/15\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    response = _import_csv_with_preview(logged_in_client, csv_content)
 
     assert b'Successfully imported 3 CE record' in response.data
 
@@ -367,10 +411,7 @@ def test_import_skips_blank_rows(logged_in_client, test_app):
         " , , \n"
         "Another Course,1.5,2026-02-01\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    response = _import_csv_with_preview(logged_in_client, csv_content)
 
     assert b'Successfully imported 2 CE record' in response.data
 
@@ -386,14 +427,18 @@ def test_import_row_missing_title(logged_in_client, test_app):
         ",3.0,2026-01-15\n"
         "Valid Course,1.0,2026-02-01\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    # Check preview shows the skipped row error
+    preview_response = _import_csv_with_preview(logged_in_client, csv_content, confirm=False)
+    assert b'Missing title' in preview_response.data
 
+    # Full import should only import the valid row
+    csv_content2 = (
+        "Title,Hours,Date Completed\n"
+        ",3.0,2026-01-15\n"
+        "Valid Course 2,1.0,2026-02-01\n"
+    )
+    response = _import_csv_with_preview(logged_in_client, csv_content2)
     assert b'Successfully imported 1 CE record' in response.data
-    assert b'1 row skipped' in response.data
-    assert b'Missing title' in response.data
 
 
 def test_import_invalid_hours(logged_in_client, test_app):
@@ -404,13 +449,9 @@ def test_import_invalid_hours(logged_in_client, test_app):
         "Bad Course,abc\n"
         "Zero Course,0\n"
     )
-    csv_data = _make_csv(csv_content)
-    response = logged_in_client.post('/import_ce', data={
-        'csv_file': (csv_data, 'import.csv'),
-    }, content_type='multipart/form-data', follow_redirects=True)
+    response = _import_csv_with_preview(logged_in_client, csv_content)
 
     assert b'Successfully imported 1 CE record' in response.data
-    assert b'2 rows skipped' in response.data
 
     from models import CERecord
     with test_app.app_context():
@@ -437,14 +478,14 @@ def test_import_non_csv_file(logged_in_client):
 
 
 def test_import_empty_csv(logged_in_client):
-    """A CSV file with no data rows (only headers) imports 0 records."""
+    """A CSV file with no data rows (only headers) shows an error."""
     csv_content = "Title,Hours,Date Completed\n"
     csv_data = _make_csv(csv_content)
     response = logged_in_client.post('/import_ce', data={
         'csv_file': (csv_data, 'import.csv'),
     }, content_type='multipart/form-data', follow_redirects=True)
 
-    assert b'Successfully imported 0 CE records' in response.data
+    assert b'No valid rows found' in response.data
 
 
 # ── JSON Backup Export Tests ──────────────────────────────────────────────────
