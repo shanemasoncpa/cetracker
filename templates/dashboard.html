@@ -11,6 +11,7 @@
             <button type="button" class="btn btn-secondary" onclick="openImportModal()">📤 Import CSV</button>
             <a href="{{ url_for('ce_records.export_ce', category=filter_category) }}" class="btn btn-secondary">📥 Export CSV</a>
             <a href="{{ url_for('ce_records.export_pdf', category=filter_category) }}" class="btn btn-secondary">📄 Export PDF</a>
+            <a href="{{ url_for('ce_records.export_backup') }}" class="btn btn-secondary">💾 Backup Data</a>
         </div>
     </div>
 

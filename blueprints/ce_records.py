@@ -456,6 +456,126 @@ def export_backup():
                     headers={'Content-Disposition': f'attachment; filename={filename}'})
 
 
+@ce_bp.route('/import_backup', methods=['POST'])
+def import_backup():
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    if 'backup_file' not in request.files:
+        flash('No file selected.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    file = request.files['backup_file']
+    if file.filename == '':
+        flash('No file selected.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    if not file.filename.lower().endswith('.json'):
+        flash('Please upload a JSON file.', 'error')
+        return redirect(url_for('ce_records.dashboard'))
+
+    try:
+        content = file.read().decode('utf-8')
+        data = json.loads(content)
+
+        if not isinstance(data, dict) or 'ce_records' not in data:
+            flash('Invalid backup file: missing "ce_records" key.', 'error')
+            return redirect(url_for('ce_records.dashboard'))
+
+        records = data['ce_records']
+        if not isinstance(records, list):
+            flash('Invalid backup file: "ce_records" must be an array.', 'error')
+            return redirect(url_for('ce_records.dashboard'))
+
+        imported = 0
+        skipped = 0
+        errors = []
+
+        for i, entry in enumerate(records):
+            if not isinstance(entry, dict):
+                errors.append(f'Record {i + 1}: not a valid object')
+                skipped += 1
+                continue
+
+            title = str(entry.get('title', '')).strip()
+            hours_raw = entry.get('hours')
+            date_str = str(entry.get('date_completed', '')).strip()
+
+            if not title:
+                errors.append(f'Record {i + 1}: missing title')
+                skipped += 1
+                continue
+
+            try:
+                hours = float(hours_raw)
+                if hours <= 0:
+                    errors.append(f'Record {i + 1}: hours must be positive ("{title}")')
+                    skipped += 1
+                    continue
+            except (ValueError, TypeError):
+                errors.append(f'Record {i + 1}: invalid hours for "{title}"')
+                skipped += 1
+                continue
+
+            date_completed = None
+            if date_str:
+                try:
+                    date_completed = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    errors.append(f'Record {i + 1}: invalid date "{date_str}" for "{title}", using today')
+                    date_completed = datetime.now().date()
+            else:
+                date_completed = datetime.now().date()
+
+            # Duplicate detection: same title + date + hours
+            existing = CERecord.query.filter_by(
+                user_id=session['user_id'],
+                title=title,
+                date_completed=date_completed,
+                hours=hours
+            ).first()
+
+            if existing:
+                skipped += 1
+                continue
+
+            record = CERecord(
+                user_id=session['user_id'],
+                title=title,
+                provider=str(entry.get('provider', '')).strip(),
+                hours=hours,
+                date_completed=date_completed,
+                category=str(entry.get('category', '')).strip(),
+                description=str(entry.get('description', '')).strip(),
+                is_napfa_approved=bool(entry.get('is_napfa_approved', False)),
+                is_ethics_course=bool(entry.get('is_ethics_course', False)),
+                napfa_subject_area=str(entry.get('napfa_subject_area', '')).strip(),
+            )
+            db.session.add(record)
+            imported += 1
+
+        db.session.commit()
+
+        msg = f'Successfully restored {imported} CE record{"s" if imported != 1 else ""}.'
+        if skipped:
+            msg += f' {skipped} skipped (duplicates or errors).'
+        flash(msg, 'success')
+
+        if errors:
+            flash('Import notes: ' + '; '.join(errors[:10]) + ('...' if len(errors) > 10 else ''), 'info')
+
+    except json.JSONDecodeError:
+        flash('Invalid JSON file. Please upload a valid backup file.', 'error')
+    except UnicodeDecodeError:
+        flash('Could not read the file. Please ensure it is a UTF-8 encoded JSON file.', 'error')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error restoring backup: {str(e)}', 'error')
+
+    return redirect(url_for('ce_records.dashboard'))
+
+
 @ce_bp.route('/analytics')
 def analytics():
     if 'user_id' not in session:

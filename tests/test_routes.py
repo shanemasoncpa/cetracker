@@ -1,6 +1,7 @@
 """Smoke tests for all routes - verify pages load and auth guards work."""
 from datetime import date
 import io
+import json
 
 
 def test_index_redirects(client):
@@ -444,3 +445,96 @@ def test_import_empty_csv(logged_in_client):
     }, content_type='multipart/form-data', follow_redirects=True)
 
     assert b'Successfully imported 0 CE records' in response.data
+
+
+# ── JSON Backup Export Tests ──────────────────────────────────────────────────
+
+
+def test_export_backup_requires_login(client):
+    """Backup route redirects to login when not authenticated."""
+    response = client.get('/export_backup')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_export_backup_returns_json(logged_in_client):
+    """Backup returns valid JSON with correct headers."""
+    response = logged_in_client.get('/export_backup')
+    assert response.status_code == 200
+    assert response.content_type == 'application/json'
+    assert 'attachment' in response.headers['Content-Disposition']
+    assert 'ce_tracker_backup_' in response.headers['Content-Disposition']
+    assert response.headers['Content-Disposition'].endswith('.json')
+
+    data = json.loads(response.data)
+    assert 'exported_at' in data
+
+
+def test_export_backup_contains_user_info(logged_in_client, sample_user):
+    """Backup JSON includes correct user details."""
+    response = logged_in_client.get('/export_backup')
+    data = json.loads(response.data)
+
+    assert 'user' in data
+    assert data['user']['username'] == sample_user['username']
+    assert data['user']['email'] == sample_user['email']
+    assert data['user']['is_napfa_member'] is False
+    assert data['user']['napfa_join_date'] is None
+
+
+def test_export_backup_contains_designations(logged_in_client, test_app, sample_user):
+    """Backup JSON includes user designations."""
+    from models import UserDesignation, db
+    with test_app.app_context():
+        desig = UserDesignation(
+            user_id=sample_user['id'],
+            designation='EA',
+        )
+        db.session.add(desig)
+        db.session.commit()
+
+    response = logged_in_client.get('/export_backup')
+    data = json.loads(response.data)
+
+    assert 'designations' in data
+    assert len(data['designations']) == 1
+    assert data['designations'][0]['designation'] == 'EA'
+    assert data['designations'][0]['birth_month'] is None
+    assert data['designations'][0]['state'] is None
+
+
+def test_export_backup_contains_ce_records(logged_in_client, test_app, sample_user):
+    """Backup JSON includes CE records with all expected fields."""
+    from models import CERecord, db
+    with test_app.app_context():
+        record = CERecord(
+            user_id=sample_user['id'],
+            title='Ethics Annual',
+            provider='AICPA',
+            hours=2.0,
+            date_completed=date(2026, 1, 15),
+            category='Ethics',
+            description='Annual ethics refresher',
+            is_napfa_approved=True,
+            is_ethics_course=True,
+            napfa_subject_area='Ethics',
+        )
+        db.session.add(record)
+        db.session.commit()
+
+    response = logged_in_client.get('/export_backup')
+    data = json.loads(response.data)
+
+    assert 'ce_records' in data
+    assert len(data['ce_records']) == 1
+
+    rec = data['ce_records'][0]
+    assert rec['title'] == 'Ethics Annual'
+    assert rec['provider'] == 'AICPA'
+    assert rec['hours'] == 2.0
+    assert rec['date_completed'] == '2026-01-15'
+    assert rec['category'] == 'Ethics'
+    assert rec['description'] == 'Annual ethics refresher'
+    assert rec['is_napfa_approved'] is True
+    assert rec['is_ethics_course'] is True
+    assert rec['napfa_subject_area'] == 'Ethics'
