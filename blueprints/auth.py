@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 
 from models import db, User, UserDesignation
@@ -179,7 +179,7 @@ def forgot_password():
         if user:
             token = uuid.uuid4().hex
             user.reset_token = token
-            user.reset_token_expiry = datetime.utcnow() + timedelta(hours=1)
+            user.reset_token_expiry = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
             db.session.commit()
             return redirect(url_for('auth.reset_password', token=token))
 
@@ -193,7 +193,7 @@ def forgot_password():
 def reset_password(token):
     user = User.query.filter_by(reset_token=token).first()
 
-    if not user or not user.reset_token_expiry or user.reset_token_expiry < datetime.utcnow():
+    if not user or not user.reset_token_expiry or user.reset_token_expiry < datetime.now(timezone.utc).replace(tzinfo=None):
         flash('This reset link is invalid or has expired.', 'error')
         return redirect(url_for('auth.forgot_password'))
 

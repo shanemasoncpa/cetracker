@@ -60,6 +60,17 @@
             </div>
         </div>
 
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 2rem 0;">
+
+        <!-- Data Management Section -->
+        <h2 style="font-size: 1.125rem; color: var(--text-primary); margin-bottom: 0.5rem;">Data Management</h2>
+        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">Export or restore your CE Tracker data.</p>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <a href="{{ url_for('ce_records.export_backup') }}" class="btn btn-secondary">💾 Export Backup (JSON)</a>
+            <a href="{{ url_for('ce_records.dashboard') }}" class="btn btn-secondary">📂 Import / Restore</a>
+        </div>
+        <small style="display: block; margin-top: 0.75rem; color: var(--text-secondary);">Backups include all your CE records and can be restored if data is lost.</small>
+
         <p class="auth-link">
             <a href="{{ url_for('ce_records.dashboard') }}">Back to Dashboard</a>
         </p>

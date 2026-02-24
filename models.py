@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
 
 db = SQLAlchemy()
 
@@ -10,7 +10,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_napfa_member = db.Column(db.Boolean, default=False, nullable=False)
     napfa_join_date = db.Column(db.Date)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
@@ -32,7 +32,7 @@ class CERecord(db.Model):
     is_napfa_approved = db.Column(db.Boolean, default=False, nullable=False)
     is_ethics_course = db.Column(db.Boolean, default=False, nullable=False)
     napfa_subject_area = db.Column(db.String(100))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class UserDesignation(db.Model):
@@ -41,7 +41,7 @@ class UserDesignation(db.Model):
     designation = db.Column(db.String(10), nullable=False)
     birth_month = db.Column(db.Integer)
     state = db.Column(db.String(2))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (db.UniqueConstraint('user_id', 'designation', name='unique_user_designation'),)
 
@@ -54,4 +54,4 @@ class Feedback(db.Model):
     message = db.Column(db.Text, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, current_app
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import csv
 import io
 import json
@@ -418,7 +418,7 @@ def export_backup():
     designations = UserDesignation.query.filter_by(user_id=user.id).all()
 
     backup = {
-        'exported_at': datetime.utcnow().isoformat() + 'Z',
+        'exported_at': datetime.now(timezone.utc).isoformat(),
         'user': {
             'username': user.username,
             'email': user.email,
