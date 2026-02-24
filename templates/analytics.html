@@ -8,6 +8,24 @@
         <h1>CE Analytics</h1>
     </div>
 
+    <!-- Date Range Filter -->
+    <div class="analytics-filter-card">
+        <form method="GET" action="{{ url_for('ce_records.analytics') }}" class="analytics-filter-form">
+            <div class="analytics-filter-group">
+                <label for="start_date">From</label>
+                <input type="date" id="start_date" name="start_date" value="{{ request.args.get('start_date', '') }}">
+            </div>
+            <div class="analytics-filter-group">
+                <label for="end_date">To</label>
+                <input type="date" id="end_date" name="end_date" value="{{ request.args.get('end_date', '') }}">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            {% if request.args.get('start_date') or request.args.get('end_date') %}
+            <a href="{{ url_for('ce_records.analytics') }}" class="btn btn-secondary btn-sm">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
     <!-- Summary Stats -->
     <div class="analytics-stats-grid">
         <div class="analytics-stat-card">
@@ -61,6 +79,29 @@
             <p class="text-secondary">No provider data yet.</p>
             {% endif %}
         </div>
+    </div>
+
+    <!-- Hours by Year Summary Table -->
+    <div class="analytics-chart-card">
+        <h3>Hours by Year</h3>
+        <table class="analytics-year-table">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Total Hours</th>
+                    <th>Records</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for year, hours in yearly_hours.items()|sort(reverse=true) %}
+                <tr>
+                    <td>{{ year }}</td>
+                    <td>{{ "%.1f"|format(hours) }}</td>
+                    <td>{{ yearly_record_counts.get(year|int, 0) if yearly_record_counts is defined else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% else %}
     <div class="empty-state">

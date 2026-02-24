@@ -228,14 +228,14 @@
                 {% endif %}
             </form>
         </div>
-        <table class="ce-table">
+        <table class="ce-table" id="ceTable">
             <thead>
                 <tr>
-                    <th>Date Completed</th>
-                    <th>Title</th>
-                    <th>Provider</th>
-                    <th>Category</th>
-                    <th>Hours</th>
+                    <th class="sortable sort-active" data-sort="date" data-dir="desc">Date Completed <span class="sort-indicator">&#9660;</span></th>
+                    <th class="sortable" data-sort="text" data-col="1">Title <span class="sort-indicator">&#9650;</span></th>
+                    <th class="sortable" data-sort="text" data-col="2">Provider <span class="sort-indicator">&#9650;</span></th>
+                    <th class="sortable" data-sort="text" data-col="3">Category <span class="sort-indicator">&#9650;</span></th>
+                    <th class="sortable" data-sort="number" data-col="4">Hours <span class="sort-indicator">&#9650;</span></th>
                     {% if napfa_requirements %}
                     <th>NAPFA</th>
                     {% endif %}
@@ -849,6 +849,59 @@
         document.body.style.overflow = 'auto';
         document.getElementById('editCEForm').reset();
     }
+
+    // ==========================================
+    // Table Sorting
+    // ==========================================
+    (function() {
+        var table = document.getElementById('ceTable');
+        if (!table) return;
+
+        var headers = table.querySelectorAll('th.sortable');
+        headers.forEach(function(th) {
+            th.addEventListener('click', function() {
+                var sortType = th.getAttribute('data-sort');
+                var currentDir = th.getAttribute('data-dir');
+                var newDir = currentDir === 'asc' ? 'desc' : 'asc';
+
+                // Reset all headers
+                headers.forEach(function(h) {
+                    h.classList.remove('sort-active');
+                    h.setAttribute('data-dir', '');
+                    h.querySelector('.sort-indicator').innerHTML = '&#9650;';
+                });
+
+                // Set active
+                th.classList.add('sort-active');
+                th.setAttribute('data-dir', newDir);
+                th.querySelector('.sort-indicator').innerHTML = newDir === 'asc' ? '&#9650;' : '&#9660;';
+
+                var colIndex = Array.prototype.indexOf.call(th.parentNode.children, th);
+                var tbody = table.querySelector('tbody');
+                var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+
+                rows.sort(function(a, b) {
+                    var aText = a.children[colIndex].textContent.trim();
+                    var bText = b.children[colIndex].textContent.trim();
+                    var cmp = 0;
+
+                    if (sortType === 'date') {
+                        cmp = aText.localeCompare(bText);
+                    } else if (sortType === 'number') {
+                        cmp = (parseFloat(aText) || 0) - (parseFloat(bText) || 0);
+                    } else {
+                        cmp = aText.localeCompare(bText, undefined, { sensitivity: 'base' });
+                    }
+
+                    return newDir === 'asc' ? cmp : -cmp;
+                });
+
+                rows.forEach(function(row) {
+                    tbody.appendChild(row);
+                });
+            });
+        });
+    })();
 </script>
 {% endblock %}
 

@@ -495,6 +495,28 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     border-bottom: 2px solid var(--border-color);
+    user-select: none;
+}
+
+.ce-table th.sortable {
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.15s;
+}
+
+.ce-table th.sortable:hover {
+    background-color: var(--border-color);
+}
+
+.sort-indicator {
+    font-size: 0.7rem;
+    margin-left: 0.25rem;
+    opacity: 0.3;
+}
+
+.ce-table th.sort-active .sort-indicator {
+    opacity: 1;
+    color: var(--primary-color);
 }
 
 .ce-table td {
@@ -1857,6 +1879,43 @@ body {
     margin-top: 0.25rem;
 }
 
+.analytics-filter-card {
+    background: var(--card-bg);
+    padding: 1rem 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+}
+
+.analytics-filter-form {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.analytics-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.analytics-filter-group label {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.analytics-filter-group input[type="date"] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+}
+
 .analytics-charts-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1869,6 +1928,41 @@ body {
     padding: 1.5rem;
     border-radius: 0.75rem;
     box-shadow: var(--shadow);
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+}
+
+.analytics-chart-card canvas {
+    flex: 1;
+}
+
+.analytics-year-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+}
+
+.analytics-year-table th,
+.analytics-year-table td {
+    padding: 0.625rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.analytics-year-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.analytics-year-table td {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.analytics-year-table tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .analytics-chart-card h3 {
@@ -1939,6 +2033,19 @@ body {
     }
     .analytics-provider-name {
         flex: 0 0 80px;
+    }
+    .analytics-filter-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .analytics-filter-group {
+        flex: 1;
+    }
+    .analytics-filter-group input[type="date"] {
+        flex: 1;
+    }
+    .analytics-chart-card {
+        min-height: 260px;
     }
 }
 
