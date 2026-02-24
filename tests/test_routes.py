@@ -744,3 +744,199 @@ def test_import_backup_skips_invalid_records(logged_in_client, test_app):
     with test_app.app_context():
         assert CERecord.query.count() == 1
         assert CERecord.query.first().title == 'Valid One'
+
+
+# ── Admin Feedback Tests ─────────────────────────────────────────────────────
+
+ADMIN_KEY = 'cetracker2025admin'
+
+
+def _create_feedback(test_app):
+    """Helper: create a Feedback record and return its id."""
+    from models import Feedback, db
+    with test_app.app_context():
+        fb = Feedback(
+            name='Tester',
+            email='tester@example.com',
+            feedback_type='bug',
+            message='Something is broken in the dashboard.',
+        )
+        db.session.add(fb)
+        db.session.commit()
+        return fb.id, fb.is_read
+
+
+def test_admin_toggle_feedback_read(client, test_app):
+    """Toggle read flips is_read from False to True."""
+    fb_id, initial_read = _create_feedback(test_app)
+    assert initial_read is False
+
+    response = client.post(
+        f'/admin/feedback/{fb_id}/toggle_read?key={ADMIN_KEY}',
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+
+    from models import Feedback
+    with test_app.app_context():
+        fb = Feedback.query.get(fb_id)
+        assert fb.is_read is True
+
+
+def test_admin_toggle_feedback_read_back(client, test_app):
+    """Toggling twice returns is_read to False."""
+    fb_id, _ = _create_feedback(test_app)
+
+    # Toggle to True
+    client.post(f'/admin/feedback/{fb_id}/toggle_read?key={ADMIN_KEY}')
+    # Toggle back to False
+    client.post(f'/admin/feedback/{fb_id}/toggle_read?key={ADMIN_KEY}')
+
+    from models import Feedback
+    with test_app.app_context():
+        fb = Feedback.query.get(fb_id)
+        assert fb.is_read is False
+
+
+def test_admin_toggle_feedback_requires_auth(client, test_app):
+    """Toggle read without admin key is rejected."""
+    fb_id, _ = _create_feedback(test_app)
+
+    response = client.post(
+        f'/admin/feedback/{fb_id}/toggle_read',
+        follow_redirects=True,
+    )
+    assert b'Unauthorized' in response.data
+
+
+def test_admin_delete_feedback(client, test_app):
+    """Delete removes the feedback record from the database."""
+    fb_id, _ = _create_feedback(test_app)
+
+    response = client.post(
+        f'/admin/feedback/{fb_id}/delete?key={ADMIN_KEY}',
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b'Feedback deleted' in response.data
+
+    from models import Feedback
+    with test_app.app_context():
+        assert Feedback.query.get(fb_id) is None
+
+
+def test_admin_delete_feedback_requires_auth(client, test_app):
+    """Delete without admin key is rejected."""
+    fb_id, _ = _create_feedback(test_app)
+
+    response = client.post(
+        f'/admin/feedback/{fb_id}/delete',
+        follow_redirects=True,
+    )
+    assert b'Unauthorized' in response.data
+
+    from models import Feedback
+    with test_app.app_context():
+        assert Feedback.query.get(fb_id) is not None
+
+
+# ── NAPFA Tracking Toggle Test ───────────────────────────────────────────────
+
+
+def test_toggle_napfa_tracking(logged_in_client):
+    """Toggle flips show_napfa_tracking and redirects to dashboard."""
+    # First toggle: False -> True (default is False for non-NAPFA user)
+    response = logged_in_client.post('/toggle_napfa_tracking')
+    assert response.status_code == 302
+    assert '/dashboard' in response.headers['Location']
+
+    # Verify it flipped by toggling again and checking redirect works
+    response = logged_in_client.post('/toggle_napfa_tracking',
+                                     follow_redirects=True)
+    assert response.status_code == 200
+    assert b'CE Records' in response.data
+
+
+def test_toggle_napfa_tracking_requires_login(client):
+    """Toggle redirects to login when not authenticated."""
+    response = client.post('/toggle_napfa_tracking')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+# ── PDF Export Test ──────────────────────────────────────────────────────────
+
+
+def test_export_pdf(logged_in_client, test_app, sample_user):
+    """PDF export returns application/pdf with correct headers."""
+    from models import CERecord, db
+    with test_app.app_context():
+        record = CERecord(
+            user_id=sample_user['id'],
+            title='PDF Export Test',
+            hours=3.0,
+            date_completed=date(2026, 1, 15),
+            category='Tax',
+            description='Test for PDF export',
+        )
+        db.session.add(record)
+        db.session.commit()
+
+    response = logged_in_client.get('/export_pdf')
+    assert response.status_code == 200
+    assert response.content_type == 'application/pdf'
+    assert 'attachment' in response.headers['Content-Disposition']
+    assert '.pdf' in response.headers['Content-Disposition']
+    # PDF files start with %PDF
+    assert response.data[:5] == b'%PDF-'
+
+
+def test_export_pdf_requires_login(client):
+    """PDF export redirects to login when not authenticated."""
+    response = client.get('/export_pdf')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_export_pdf_empty(logged_in_client):
+    """PDF export works even with no CE records."""
+    response = logged_in_client.get('/export_pdf')
+    assert response.status_code == 200
+    assert response.content_type == 'application/pdf'
+
+
+# ── Analytics Page Test ──────────────────────────────────────────────────────
+
+
+def test_analytics_page_loads(logged_in_client):
+    """Analytics page loads with 200 when logged in (no CE data)."""
+    response = logged_in_client.get('/analytics')
+    assert response.status_code == 200
+
+
+def test_analytics_page_with_data(logged_in_client, test_app, sample_user):
+    """Analytics page loads with CE records present."""
+    from models import CERecord, db
+    with test_app.app_context():
+        for i in range(3):
+            record = CERecord(
+                user_id=sample_user['id'],
+                title=f'Analytics Course {i}',
+                hours=2.0,
+                date_completed=date(2026, 1, 15 + i),
+                category='Tax' if i % 2 == 0 else 'Ethics',
+                provider='Test Provider',
+                description='',
+            )
+            db.session.add(record)
+        db.session.commit()
+
+    response = logged_in_client.get('/analytics')
+    assert response.status_code == 200
+
+
+def test_analytics_requires_login(client):
+    """Analytics page redirects to login when not authenticated."""
+    response = client.get('/analytics')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']

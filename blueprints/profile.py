@@ -12,7 +12,7 @@ def profile():
         flash('Please log in to access your profile.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
 
     if request.method == 'POST':
         action = request.form.get('action')

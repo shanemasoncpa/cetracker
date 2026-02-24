@@ -12,7 +12,7 @@ def manage_designations():
         flash('Please log in to manage your designations.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     user_designations = UserDesignation.query.filter_by(user_id=user.id).all()
     current_designations = {ud.designation: ud for ud in user_designations}
 

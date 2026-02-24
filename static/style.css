@@ -345,6 +345,60 @@ body {
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Data Tools Dropdown */
+.dropdown {
+    position: relative;
+}
+
+.dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.25rem;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-lg);
+    min-width: 200px;
+    z-index: 200;
+    overflow: hidden;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s;
+    font-family: inherit;
+}
+
+.dropdown-item:hover {
+    background-color: var(--bg-color);
+}
+
+.dropdown-item + .dropdown-item {
+    border-top: 1px solid var(--border-color);
 }
 
 .filter-section {
@@ -1158,18 +1212,37 @@ body {
     }
 
     .header-actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
         gap: 0.5rem;
         width: 100%;
     }
 
-    .header-actions .btn {
+    .header-actions > .btn {
+        flex: 1;
+    }
+
+    .header-actions .dropdown {
+        flex: 1;
+    }
+
+    .header-actions .dropdown .btn {
         width: 100%;
         font-size: 0.85rem;
         padding: 0.625rem 0.75rem;
         text-align: center;
         white-space: nowrap;
+    }
+
+    .header-actions > .btn {
+        font-size: 0.85rem;
+        padding: 0.625rem 0.75rem;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .dropdown-menu {
+        right: 0;
+        left: auto;
     }
 
     .filter-form {
@@ -1892,11 +1965,11 @@ body {
     }
 
     .header-actions {
-        grid-template-columns: 1fr 1fr;
         gap: 0.375rem;
     }
 
-    .header-actions .btn {
+    .header-actions > .btn,
+    .header-actions .dropdown .btn {
         font-size: 0.78rem;
         padding: 0.5rem 0.5rem;
     }

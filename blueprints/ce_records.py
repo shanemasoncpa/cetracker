@@ -22,7 +22,7 @@ def dashboard():
         flash('Please log in to access your dashboard.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     user_designations = UserDesignation.query.filter_by(user_id=user.id).all()
     filter_category = request.args.get('category', '')
 
@@ -54,7 +54,7 @@ def add_ce():
         flash('Please log in to add CE records.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
 
     if request.method == 'POST':
         title = request.form.get('title')
@@ -309,7 +309,7 @@ def export_ce():
         flash('Please log in.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     filter_category = request.args.get('category', '')
 
     query = CERecord.query.filter_by(user_id=user.id)
@@ -342,7 +342,7 @@ def export_pdf():
         flash('Please log in.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     filter_category = request.args.get('category', '')
 
     query = CERecord.query.filter_by(user_id=user.id)
@@ -413,7 +413,7 @@ def export_backup():
         flash('Please log in.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     ce_records = CERecord.query.filter_by(user_id=user.id).order_by(CERecord.date_completed.desc()).all()
     designations = UserDesignation.query.filter_by(user_id=user.id).all()
 
@@ -582,7 +582,7 @@ def analytics():
         flash('Please log in to view analytics.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     ce_records = CERecord.query.filter_by(user_id=user.id).order_by(CERecord.date_completed.desc()).all()
 
     category_hours = {}

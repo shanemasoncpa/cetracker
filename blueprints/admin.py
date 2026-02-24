@@ -19,7 +19,7 @@ def admin_required(f):
             return f(*args, **kwargs)
 
         if 'user_id' in session:
-            user = User.query.get(session['user_id'])
+            user = db.session.get(User, session['user_id'])
             if user and user.is_admin:
                 return f(*args, **kwargs)
 
