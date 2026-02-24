@@ -1,10 +1,8 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, send_from_directory, current_app
-from werkzeug.utils import secure_filename
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, current_app
 from datetime import datetime, timedelta
-import os
 import csv
 import io
-import uuid
+import json
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, landscape
@@ -16,16 +14,6 @@ from models import db, User, CERecord, UserDesignation
 from designation_helpers import calculate_designation_requirements, calculate_napfa_requirements
 
 ce_bp = Blueprint('ce_records', __name__)
-
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
-
-
-def ensure_upload_directory():
-    upload_dir = current_app.config['UPLOAD_FOLDER']
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
 
 
 @ce_bp.route('/dashboard')
@@ -90,28 +78,11 @@ def add_ce():
             flash('Invalid hours or date format.', 'error')
             return redirect(url_for('ce_records.dashboard'))
 
-        certificate_filename = None
-        if 'certificate' in request.files:
-            file = request.files['certificate']
-            if file and file.filename != '':
-                if allowed_file(file.filename):
-                    ensure_upload_directory()
-                    original_filename = secure_filename(file.filename)
-                    file_ext = original_filename.rsplit('.', 1)[1].lower()
-                    unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
-                    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-                    file.save(file_path)
-                    certificate_filename = unique_filename
-                else:
-                    flash('Only PDF files are allowed for certificates.', 'error')
-                    return redirect(url_for('ce_records.dashboard'))
-
         ce_record = CERecord(
             user_id=session['user_id'], title=title, provider=provider or '',
             hours=hours, date_completed=date_completed, category=category or '',
             description=description or '', is_napfa_approved=is_napfa_approved,
-            is_ethics_course=is_ethics_course, napfa_subject_area=napfa_subject_area or '',
-            certificate_filename=certificate_filename
+            is_ethics_course=is_ethics_course, napfa_subject_area=napfa_subject_area or ''
         )
         db.session.add(ce_record)
         db.session.commit()
@@ -120,25 +91,6 @@ def add_ce():
         return redirect(url_for('ce_records.dashboard'))
 
     return render_template('add_ce.html', user=user)
-
-
-@ce_bp.route('/certificate/<int:ce_id>')
-def download_certificate(ce_id):
-    if 'user_id' not in session:
-        flash('Please log in.', 'error')
-        return redirect(url_for('auth.login'))
-
-    ce_record = CERecord.query.get_or_404(ce_id)
-    if ce_record.user_id != session['user_id']:
-        flash('You do not have permission to access this certificate.', 'error')
-        return redirect(url_for('ce_records.dashboard'))
-
-    if not ce_record.certificate_filename:
-        flash('No certificate available for this CE record.', 'error')
-        return redirect(url_for('ce_records.dashboard'))
-
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'],
-                               ce_record.certificate_filename, as_attachment=True)
 
 
 @ce_bp.route('/delete_ce/<int:ce_id>', methods=['POST'])
@@ -151,14 +103,6 @@ def delete_ce(ce_id):
     if ce_record.user_id != session['user_id']:
         flash('You do not have permission to delete this record.', 'error')
         return redirect(url_for('ce_records.dashboard'))
-
-    if ce_record.certificate_filename:
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], ce_record.certificate_filename)
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except OSError:
-                pass
 
     db.session.delete(ce_record)
     db.session.commit()
@@ -197,28 +141,6 @@ def edit_ce(ce_id):
     except ValueError:
         flash('Invalid hours or date format.', 'error')
         return redirect(url_for('ce_records.dashboard'))
-
-    if 'certificate' in request.files:
-        file = request.files['certificate']
-        if file and file.filename != '':
-            if allowed_file(file.filename):
-                ensure_upload_directory()
-                if ce_record.certificate_filename:
-                    old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], ce_record.certificate_filename)
-                    if os.path.exists(old_path):
-                        try:
-                            os.remove(old_path)
-                        except OSError:
-                            pass
-                original_filename = secure_filename(file.filename)
-                file_ext = original_filename.rsplit('.', 1)[1].lower()
-                unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
-                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-                file.save(file_path)
-                ce_record.certificate_filename = unique_filename
-            else:
-                flash('Only PDF files are allowed for certificates.', 'error')
-                return redirect(url_for('ce_records.dashboard'))
 
     ce_record.title = title
     ce_record.provider = provider or ''
@@ -482,6 +404,55 @@ def export_pdf():
         filename = f'ce_records_{filter_category.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.pdf'
 
     return Response(buffer.getvalue(), mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename={filename}'})
+
+
+@ce_bp.route('/export_backup')
+def export_backup():
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+    ce_records = CERecord.query.filter_by(user_id=user.id).order_by(CERecord.date_completed.desc()).all()
+    designations = UserDesignation.query.filter_by(user_id=user.id).all()
+
+    backup = {
+        'exported_at': datetime.utcnow().isoformat() + 'Z',
+        'user': {
+            'username': user.username,
+            'email': user.email,
+            'is_napfa_member': user.is_napfa_member,
+            'napfa_join_date': user.napfa_join_date.isoformat() if user.napfa_join_date else None,
+        },
+        'designations': [
+            {
+                'designation': d.designation,
+                'birth_month': d.birth_month,
+                'state': d.state,
+            }
+            for d in designations
+        ],
+        'ce_records': [
+            {
+                'title': r.title,
+                'provider': r.provider or '',
+                'hours': r.hours,
+                'date_completed': r.date_completed.isoformat(),
+                'category': r.category or '',
+                'description': r.description or '',
+                'is_napfa_approved': r.is_napfa_approved,
+                'is_ethics_course': r.is_ethics_course,
+                'napfa_subject_area': r.napfa_subject_area or '',
+            }
+            for r in ce_records
+        ],
+    }
+
+    output = json.dumps(backup, indent=2)
+    filename = f'ce_tracker_backup_{datetime.now().strftime("%Y%m%d")}.json'
+
+    return Response(output, mimetype='application/json',
                     headers={'Content-Disposition': f'attachment; filename={filename}'})
 
 

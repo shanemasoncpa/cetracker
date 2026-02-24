@@ -32,7 +32,6 @@ class CERecord(db.Model):
     is_napfa_approved = db.Column(db.Boolean, default=False, nullable=False)
     is_ethics_course = db.Column(db.Boolean, default=False, nullable=False)
     napfa_subject_area = db.Column(db.String(100))
-    certificate_filename = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 

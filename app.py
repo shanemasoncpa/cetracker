@@ -17,9 +17,6 @@ else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ce_tracker.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads/certificates'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
 
 db.init_app(app)
 
@@ -67,7 +64,6 @@ def update_database_schema():
             ('user_designation', 'state', 'VARCHAR(2)'),
             ('ce_record', 'is_napfa_approved', f'BOOLEAN DEFAULT {boolean_default} NOT NULL'),
             ('ce_record', 'is_ethics_course', f'BOOLEAN DEFAULT {boolean_default} NOT NULL'),
-            ('ce_record', 'certificate_filename', 'VARCHAR(255)'),
             ('ce_record', 'napfa_subject_area', 'VARCHAR(100)'),
             ('feedback', 'is_read', f'BOOLEAN DEFAULT {boolean_default} NOT NULL'),
         ]
@@ -85,18 +81,11 @@ def update_database_schema():
         print("Database schema is up to date.")
 
 
-def ensure_upload_directory():
-    upload_dir = app.config['UPLOAD_FOLDER']
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
-
-
 def init_db():
     with app.app_context():
         print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
         db.create_all()
         update_database_schema()
-        ensure_upload_directory()
         print("Database initialization complete!")
 
 

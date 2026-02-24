@@ -1124,26 +1124,6 @@ body {
     background-color: #fee2e2;
 }
 
-.certificate-link {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 500;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    transition: all 0.2s;
-    display: inline-block;
-}
-
-.certificate-link:hover {
-    background-color: #dbeafe;
-    text-decoration: underline;
-}
-
-.no-certificate {
-    color: var(--text-secondary);
-    font-style: italic;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
     .nav-container {

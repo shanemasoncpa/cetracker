@@ -232,7 +232,6 @@
                     {% if napfa_requirements %}
                     <th>NAPFA</th>
                     {% endif %}
-                    <th>Certificate</th>
                     <th>Description</th>
                     <th>Actions</th>
                 </tr>
@@ -258,15 +257,6 @@
                         {% endif %}
                     </td>
                     {% endif %}
-                    <td>
-                        {% if record.certificate_filename %}
-                        <a href="{{ url_for('ce_records.download_certificate', ce_id=record.id) }}" class="certificate-link" target="_blank" title="Download Certificate">
-                            📄 PDF
-                        </a>
-                        {% else %}
-                        <span class="no-certificate">-</span>
-                        {% endif %}
-                    </td>
                     <td class="description-cell">{{ record.description[:50] }}{% if record.description|length > 50 %}...{% endif %}</td>
                     <td class="actions-cell">
                         <button type="button" class="btn btn-primary btn-sm edit-ce-btn"
@@ -280,7 +270,6 @@
                                 data-napfa-approved="{{ 'true' if record.is_napfa_approved else 'false' }}"
                                 data-ethics-course="{{ 'true' if record.is_ethics_course else 'false' }}"
                                 data-napfa-subject-area="{{ (record.napfa_subject_area or '')|e }}"
-                                data-certificate-filename="{{ (record.certificate_filename or '')|e }}"
                                 onclick="openEditCEModal(this)">Edit</button>
                         <form method="POST" action="{{ url_for('ce_records.delete_ce', ce_id=record.id) }}"
                               onsubmit="return confirm('Are you sure you want to delete this CE record?');"
@@ -307,7 +296,7 @@
             <h2>Add CE Record</h2>
             <button type="button" class="modal-close" onclick="closeAddCEModal()">&times;</button>
         </div>
-        <form method="POST" action="{{ url_for('ce_records.add_ce') }}" class="ce-form" enctype="multipart/form-data" id="addCEForm">
+        <form method="POST" action="{{ url_for('ce_records.add_ce') }}" class="ce-form" id="addCEForm">
             <div class="modal-body">
                 <div class="form-group">
                     <label for="modal_title">Title *</label>
@@ -366,26 +355,6 @@
                     <textarea id="modal_description" name="description" rows="4" placeholder="Optional description of the CE activity"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label>Certificate (PDF)</label>
-                    <div class="file-upload-area" id="modal-file-upload-area">
-                        <input type="file" id="modal_certificate" name="certificate" accept=".pdf" style="display: none;">
-                        <div class="file-upload-content">
-                            <svg class="file-upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            <p class="file-upload-text">Drag and drop your certificate PDF here, or <span class="file-upload-link">click to browse</span></p>
-                            <p class="file-upload-hint">Only PDF files are accepted (max 16MB)</p>
-                        </div>
-                        <div class="file-upload-preview" id="modal-file-preview" style="display: none;">
-                            <span class="file-name" id="modal-file-name"></span>
-                            <button type="button" class="file-remove" id="modal-file-remove">×</button>
-                        </div>
-                    </div>
-                </div>
-
                 {% if user.is_napfa_member %}
                 <div class="form-group">
                     <label class="designation-label">
@@ -419,7 +388,7 @@
             <h2>Edit CE Record</h2>
             <button type="button" class="modal-close" onclick="closeEditCEModal()">&times;</button>
         </div>
-        <form method="POST" action="" class="ce-form" enctype="multipart/form-data" id="editCEForm">
+        <form method="POST" action="" class="ce-form" id="editCEForm">
             <div class="modal-body">
                 <input type="hidden" id="edit_ce_id" name="ce_id" value="">
 
@@ -478,30 +447,6 @@
                 <div class="form-group">
                     <label for="edit_description">Description</label>
                     <textarea id="edit_description" name="description" rows="4" placeholder="Optional description of the CE activity"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Certificate (PDF)</label>
-                    <div id="edit-current-certificate" style="display: none; margin-bottom: 0.5rem;">
-                        <span style="color: var(--text-secondary); font-size: 0.875rem;">Current file: <strong id="edit-current-cert-name"></strong></span>
-                        <small style="color: var(--text-secondary); display: block;">Upload a new file below to replace it, or leave empty to keep the current certificate.</small>
-                    </div>
-                    <div class="file-upload-area" id="edit-file-upload-area">
-                        <input type="file" id="edit_certificate" name="certificate" accept=".pdf" style="display: none;">
-                        <div class="file-upload-content">
-                            <svg class="file-upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            <p class="file-upload-text">Drag and drop your certificate PDF here, or <span class="file-upload-link">click to browse</span></p>
-                            <p class="file-upload-hint">Only PDF files are accepted (max 16MB)</p>
-                        </div>
-                        <div class="file-upload-preview" id="edit-file-preview" style="display: none;">
-                            <span class="file-name" id="edit-file-name"></span>
-                            <button type="button" class="file-remove" id="edit-file-remove">&times;</button>
-                        </div>
-                    </div>
                 </div>
 
                 {% if user.is_napfa_member %}
@@ -682,11 +627,7 @@
     function closeAddCEModal() {
         document.getElementById('addCEModal').style.display = 'none';
         document.body.style.overflow = 'auto';
-        // Reset form
         document.getElementById('addCEForm').reset();
-        // Reset file preview
-        document.getElementById('modal-file-preview').style.display = 'none';
-        document.querySelector('#modal-file-upload-area .file-upload-content').style.display = 'block';
     }
 
     // Close modals when clicking outside
@@ -705,84 +646,6 @@
         }
     }
 
-    // File upload handling for modal
-    const modalFileInput = document.getElementById('modal_certificate');
-    const modalFileUploadArea = document.getElementById('modal-file-upload-area');
-    const modalFilePreview = document.getElementById('modal-file-preview');
-    const modalFileName = document.getElementById('modal-file-name');
-    const modalFileRemove = document.getElementById('modal-file-remove');
-    const modalFileUploadContent = modalFileUploadArea.querySelector('.file-upload-content');
-    const modalFileUploadLink = modalFileUploadArea.querySelector('.file-upload-link');
-
-    // Click to browse
-    if (modalFileUploadLink) {
-        modalFileUploadLink.addEventListener('click', () => modalFileInput.click());
-    }
-    modalFileUploadArea.addEventListener('click', (e) => {
-        if (e.target === modalFileUploadArea || e.target.closest('.file-upload-content')) {
-            modalFileInput.click();
-        }
-    });
-
-    // File input change
-    modalFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.type !== 'application/pdf') {
-                alert('Please select a PDF file.');
-                modalFileInput.value = '';
-                return;
-            }
-            if (file.size > 16 * 1024 * 1024) {
-                alert('File size must be less than 16MB.');
-                modalFileInput.value = '';
-                return;
-            }
-            modalFileName.textContent = file.name;
-            modalFileUploadContent.style.display = 'none';
-            modalFilePreview.style.display = 'flex';
-        }
-    });
-
-    // Remove file
-    modalFileRemove.addEventListener('click', (e) => {
-        e.stopPropagation();
-        modalFileInput.value = '';
-        modalFilePreview.style.display = 'none';
-        modalFileUploadContent.style.display = 'block';
-    });
-
-    // Drag and drop
-    modalFileUploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        modalFileUploadArea.classList.add('drag-over');
-    });
-
-    modalFileUploadArea.addEventListener('dragleave', () => {
-        modalFileUploadArea.classList.remove('drag-over');
-    });
-
-    modalFileUploadArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        modalFileUploadArea.classList.remove('drag-over');
-
-        const file = e.dataTransfer.files[0];
-        if (file) {
-            if (file.type !== 'application/pdf') {
-                alert('Please drop a PDF file.');
-                return;
-            }
-            if (file.size > 16 * 1024 * 1024) {
-                alert('File size must be less than 16MB.');
-                return;
-            }
-            modalFileInput.files = e.dataTransfer.files;
-            modalFileName.textContent = file.name;
-            modalFileUploadContent.style.display = 'none';
-            modalFilePreview.style.display = 'flex';
-        }
-    });
-
     // ==========================================
     // Edit CE Modal Functions
     // ==========================================
@@ -799,7 +662,6 @@
         var isNapfaApproved = button.getAttribute('data-napfa-approved') === 'true';
         var isEthicsCourse = button.getAttribute('data-ethics-course') === 'true';
         var napfaSubjectArea = button.getAttribute('data-napfa-subject-area');
-        var certificateFilename = button.getAttribute('data-certificate-filename');
 
         // Set form action
         document.getElementById('editCEForm').action = '{{ url_for("ce_records.edit_ce", ce_id=0) }}'.replace('0', id);
@@ -829,21 +691,6 @@
             ethicsCourseCheckbox.checked = isEthicsCourse;
         }
 
-        // Handle certificate display
-        var currentCertDiv = document.getElementById('edit-current-certificate');
-        var currentCertName = document.getElementById('edit-current-cert-name');
-        if (certificateFilename) {
-            currentCertName.textContent = certificateFilename;
-            currentCertDiv.style.display = 'block';
-        } else {
-            currentCertDiv.style.display = 'none';
-        }
-
-        // Reset file upload state
-        document.getElementById('edit_certificate').value = '';
-        document.getElementById('edit-file-preview').style.display = 'none';
-        document.querySelector('#edit-file-upload-area .file-upload-content').style.display = 'block';
-
         // Show the modal
         document.getElementById('editCEModal').style.display = 'block';
         document.body.style.overflow = 'hidden';
@@ -852,92 +699,8 @@
     function closeEditCEModal() {
         document.getElementById('editCEModal').style.display = 'none';
         document.body.style.overflow = 'auto';
-        // Reset form
         document.getElementById('editCEForm').reset();
-        // Reset file preview
-        document.getElementById('edit-file-preview').style.display = 'none';
-        document.querySelector('#edit-file-upload-area .file-upload-content').style.display = 'block';
-        // Hide current certificate info
-        document.getElementById('edit-current-certificate').style.display = 'none';
     }
-
-    // File upload handling for Edit modal
-    var editFileInput = document.getElementById('edit_certificate');
-    var editFileUploadArea = document.getElementById('edit-file-upload-area');
-    var editFilePreview = document.getElementById('edit-file-preview');
-    var editFileName = document.getElementById('edit-file-name');
-    var editFileRemove = document.getElementById('edit-file-remove');
-    var editFileUploadContent = editFileUploadArea.querySelector('.file-upload-content');
-    var editFileUploadLink = editFileUploadArea.querySelector('.file-upload-link');
-
-    // Click to browse
-    if (editFileUploadLink) {
-        editFileUploadLink.addEventListener('click', function() { editFileInput.click(); });
-    }
-    editFileUploadArea.addEventListener('click', function(e) {
-        if (e.target === editFileUploadArea || e.target.closest('.file-upload-content')) {
-            editFileInput.click();
-        }
-    });
-
-    // File input change
-    editFileInput.addEventListener('change', function(e) {
-        var file = e.target.files[0];
-        if (file) {
-            if (file.type !== 'application/pdf') {
-                alert('Please select a PDF file.');
-                editFileInput.value = '';
-                return;
-            }
-            if (file.size > 16 * 1024 * 1024) {
-                alert('File size must be less than 16MB.');
-                editFileInput.value = '';
-                return;
-            }
-            editFileName.textContent = file.name;
-            editFileUploadContent.style.display = 'none';
-            editFilePreview.style.display = 'flex';
-        }
-    });
-
-    // Remove file
-    editFileRemove.addEventListener('click', function(e) {
-        e.stopPropagation();
-        editFileInput.value = '';
-        editFilePreview.style.display = 'none';
-        editFileUploadContent.style.display = 'block';
-    });
-
-    // Drag and drop for edit modal
-    editFileUploadArea.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        editFileUploadArea.classList.add('drag-over');
-    });
-
-    editFileUploadArea.addEventListener('dragleave', function() {
-        editFileUploadArea.classList.remove('drag-over');
-    });
-
-    editFileUploadArea.addEventListener('drop', function(e) {
-        e.preventDefault();
-        editFileUploadArea.classList.remove('drag-over');
-
-        var file = e.dataTransfer.files[0];
-        if (file) {
-            if (file.type !== 'application/pdf') {
-                alert('Please drop a PDF file.');
-                return;
-            }
-            if (file.size > 16 * 1024 * 1024) {
-                alert('File size must be less than 16MB.');
-                return;
-            }
-            editFileInput.files = e.dataTransfer.files;
-            editFileName.textContent = file.name;
-            editFileUploadContent.style.display = 'none';
-            editFilePreview.style.display = 'flex';
-        }
-    });
 </script>
 {% endblock %}
 

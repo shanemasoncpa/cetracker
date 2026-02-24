@@ -28,13 +28,42 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 **Prompt to paste:** "You are the Manager agent for the CE Tracker project. Read CLAUDE.md for context. Your job is to coordinate work, review changes from other agents, update the Task Board below, and ensure no conflicts between agents. Do NOT write code directly - delegate to specialists."
 
 ### Terminal 2: Backend Agent
-**Prompt to paste:** "You are the Backend specialist for CE Tracker. Read CLAUDE.md for context. You ONLY work on: app.py, database models, routes, and requirements.txt. Before making changes, check CLAUDE.md for your current assigned task. After completing a task, tell the manager agent what you changed."
+**Prompt to paste:** "You are the Backend specialist for CE Tracker. Read CLAUDE.md for full context and rules. You ONLY work on: app.py, models.py, designation_helpers.py, blueprints/*.py, and requirements.txt. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) If the task says 'investigate' or 'report', do NOT make any code changes — only read files and report findings. (3) Never remove features, delete columns, or make architectural decisions without explicit Manager approval. (4) After completing a task, report back with: what files you changed (if any), what you found (if investigating), and what you recommend next."
 
 ### Terminal 3: Frontend Agent
-**Prompt to paste:** "You are the Frontend specialist for CE Tracker. Read CLAUDE.md for context. You ONLY work on: templates/*.html and static/style.css. Before making changes, check CLAUDE.md for your current assigned task. After completing a task, tell the manager agent what you changed."
+**Prompt to paste:** "You are the Frontend specialist for CE Tracker. Read CLAUDE.md for full context and rules. You ONLY work on: templates/*.html, static/style.css, and static/js/*.js. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) Do not remove features or UI elements unless the Manager explicitly tells you to. (3) After completing a task, report back with: what files you changed, what you added/removed, and any issues you found."
 
 ### Terminal 4: QA/Testing Agent
-**Prompt to paste:** "You are the QA/Testing specialist for CE Tracker. Read CLAUDE.md for context. Your job is to: review code for bugs and security issues, write tests, run the app locally and verify features work, and report issues. Check CLAUDE.md for your current assigned task."
+**Prompt to paste:** "You are the QA/Testing specialist for CE Tracker. Read CLAUDE.md for full context and rules. Your job is to: review code for bugs and security issues, write tests, run the app locally and verify features work, and report issues. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) Only edit files in tests/. Never edit app code — report bugs to the Manager instead. (3) After completing a task, report back with: what tests you added, how many pass/fail, and any bugs found."
+
+## Agent Coordination Protocol
+
+### Task Types
+Each task assigned to an agent will be one of these types. Follow the rules for your task type:
+
+- **IMPLEMENT** — Write code to add/change functionality. Edit only your owned files. Report what you changed.
+- **INVESTIGATE** — Read files, analyze, and report findings. Do NOT edit any files. Only report what you found and recommend next steps.
+- **REMOVE** — Delete specific code/features as listed. Only remove exactly what's specified. Report what you removed.
+- **FIX** — Fix a specific bug. Only change what's needed for the fix. Report what you changed and how to verify.
+
+### Communication Format
+When reporting back to the Manager (via Shane copying your message), use this format:
+```
+TASK: #[number] — [task name]
+TYPE: [IMPLEMENT/INVESTIGATE/REMOVE/FIX]
+STATUS: [DONE/BLOCKED/PARTIAL]
+FILES CHANGED: [list files, or "None" for investigate tasks]
+SUMMARY: [1-3 sentences on what you did or found]
+NEEDS NEXT: [what should happen next, or "Nothing — ready for review"]
+```
+
+### Rules for ALL Agents
+1. **Read CLAUDE.md before every task** — it's the source of truth
+2. **Stay in your lane** — only edit files you own (see File Ownership Rules)
+3. **Do exactly what's assigned** — no more, no less. Don't "improve" adjacent code.
+4. **Never make architectural decisions** — if you think something should be added/removed/restructured, recommend it in your report. The Manager decides.
+5. **Don't chain tasks** — complete your assigned task, report back, and wait for the next assignment
+6. **If blocked, say so** — don't try workarounds. Report what's blocking you.
 
 ## File Ownership Rules
 | File(s) | Owner | Others may read but NOT edit |
@@ -57,7 +86,7 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 - Login/logout with session auth + forgot/reset password
 - User profile page (change email, password)
 - Dashboard with CE records table, category filtering, stats
-- Add/Edit/Delete CE records with PDF certificate upload
+- Add/Edit/Delete CE records
 - CSV import (bulk upload historical CE records)
 - CSV + PDF export (with category filter)
 - NAPFA CE tracking with progress bars
@@ -67,23 +96,26 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 - Feedback system (submit + admin view with is_admin role)
 - Dark mode toggle with localStorage persistence
 - Blueprint-based architecture (5 blueprints)
-- 39 passing pytest tests
-- Responsive design
+- 53 passing pytest tests
+- Mobile-responsive design
 - Deployed on Render with PostgreSQL
 
 ### Known Issues
-1. **Database resets on deploy** — User data (including PDFs) appears to be lost when pushing to production. Needs investigation. Affected user: shanemasoncpa.
+1. **Database resets on Render free tier** — Render's free PostgreSQL plan recycles databases. Not a code bug. Fix: upgrade to paid plan ($7/mo). Workaround: CSV export/import for backup.
 2. **No email notifications** — Password reset generates a token but doesn't email it (user must use the direct link)
-3. **Certificate PDFs stored on ephemeral filesystem** — Render's filesystem resets on deploy, so uploaded PDFs are lost. Need cloud storage (S3/Cloudinary) or database storage.
+3. **Certificate upload removed** — Removed because Render's ephemeral filesystem loses files on deploy. Will re-add when persistent storage is available (paid DB with BYTEA or S3).
+
+### Recently Removed
+- **Certificate PDF upload/download** — Removed from models.py, ce_records.py, app.py. Frontend cleanup in progress (dashboard.html, add_ce.html templates still have leftover UI).
 
 ## Task Board
 Update this section as tasks are assigned and completed. Use status: TODO, IN PROGRESS, DONE.
 
-### Completed (Previous Sessions)
+### Completed
 | # | Task | Status |
 |---|------|--------|
 | 1-6 | Core functionality (edit CE, password reset, profile, NAPFA fix, cleanup, footer) | DONE |
-| 7-8 | Test framework + auth tests (39 tests) | DONE |
+| 7-8 | Test framework + auth tests | DONE |
 | 9 | PDF export with reportlab | DONE |
 | 10 | Analytics page with Chart.js | DONE |
 | 11 | Refactor app.py into blueprints | DONE |
@@ -94,14 +126,17 @@ Update this section as tasks are assigned and completed. Use status: TODO, IN PR
 | 16 | Deploy and verify on Render | DONE |
 | 17 | Fix CPA state dropdown bug on registration | DONE |
 | 18 | CSV importer for historical CE records | DONE |
+| 19 | INVESTIGATE: DB reset on Render — Render free-tier PostgreSQL recycles DBs | DONE |
+| 20 | Add CSV import test coverage (14 new tests, 53 total) | DONE |
+| 21 | Improve mobile responsiveness of dashboard | DONE |
+| 22 | INVESTIGATE + REMOVE: Certificate upload — removed backend, frontend cleanup needed | DONE |
 
 ### Current Sprint — ACTIVE TASKS
-| # | Task | Agent | Status | Notes |
-|---|------|-------|--------|-------|
-| 19 | Investigate database reset issue on Render deploys | Backend | TODO | Why is user data being lost? Check if db.create_all() or migrations are dropping tables. Check Render PostgreSQL persistence. User affected: shanemasoncpa |
-| 20 | Add CSV import test coverage | QA | TODO | Write tests for /import_ce route: valid CSV, missing columns, duplicate detection, bad dates, empty file |
-| 21 | Improve mobile responsiveness of dashboard | Frontend | TODO | Test dashboard, modals, and import modal on small screens. Fix any overflow/layout issues. Check that the header-actions buttons wrap nicely on mobile. |
-| 22 | Investigate certificate PDF persistence | Backend | TODO | Render's ephemeral filesystem loses uploaded files on redeploy. Research options: store PDFs as BLOBs in PostgreSQL, or use external storage. Document findings — do NOT implement yet, just report back. |
+| # | Task | Type | Agent | Status | Notes |
+|---|------|------|-------|--------|-------|
+| 23 | Remove certificate upload UI from templates | REMOVE | Frontend | IN PROGRESS | Remove certificate column, upload areas, JS handlers from dashboard/add_ce. KEEP .file-upload-* CSS. |
+| 24 | Add "Export All Data" JSON backup endpoint | IMPLEMENT | Backend | IN PROGRESS | GET /export_backup — exports user info, CE records, designations as downloadable JSON. Add to ce_records.py. |
+| 25 | Verify certificate removal doesn't break tests | INVESTIGATE | QA | IN PROGRESS | Check if any tests reference certificate stuff. Run full test suite. Report only — no edits. |
 
 ## Conventions
 - **Python**: Follow PEP 8, use type hints for new functions
