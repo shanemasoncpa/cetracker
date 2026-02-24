@@ -538,3 +538,209 @@ def test_export_backup_contains_ce_records(logged_in_client, test_app, sample_us
     assert rec['is_napfa_approved'] is True
     assert rec['is_ethics_course'] is True
     assert rec['napfa_subject_area'] == 'Ethics'
+
+
+# ── JSON Backup Import Tests ─────────────────────────────────────────────────
+
+
+def _make_backup_file(data: dict) -> io.BytesIO:
+    """Helper: wrap a dict as a JSON BytesIO for upload."""
+    buf = io.BytesIO(json.dumps(data).encode('utf-8'))
+    buf.name = 'backup.json'
+    return buf
+
+
+def test_import_backup_requires_login(client):
+    """Import backup redirects to login when not authenticated."""
+    backup = {'ce_records': []}
+    response = client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_import_backup_valid(logged_in_client, test_app):
+    """Valid backup JSON imports CE records correctly with all fields."""
+    backup = {
+        'ce_records': [
+            {
+                'title': 'Ethics Refresher',
+                'provider': 'AICPA',
+                'hours': 2.0,
+                'date_completed': '2026-01-15',
+                'category': 'Ethics',
+                'description': 'Annual ethics',
+                'is_napfa_approved': True,
+                'is_ethics_course': True,
+                'napfa_subject_area': 'Ethics',
+            },
+            {
+                'title': 'Tax Update',
+                'provider': 'CPE Inc',
+                'hours': 4.5,
+                'date_completed': '2026-03-01',
+                'category': 'Tax',
+                'description': '',
+            },
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 2 CE record' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        records = CERecord.query.order_by(CERecord.title).all()
+        assert len(records) == 2
+
+        ethics = next(r for r in records if r.title == 'Ethics Refresher')
+        assert ethics.hours == 2.0
+        assert ethics.provider == 'AICPA'
+        assert ethics.category == 'Ethics'
+        assert ethics.date_completed == date(2026, 1, 15)
+        assert ethics.is_napfa_approved is True
+        assert ethics.is_ethics_course is True
+
+        tax = next(r for r in records if r.title == 'Tax Update')
+        assert tax.hours == 4.5
+        assert tax.is_napfa_approved is False
+
+
+def test_import_backup_rejects_non_json_file(logged_in_client):
+    """Non-JSON file extension is rejected."""
+    buf = io.BytesIO(b'not json content')
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (buf, 'backup.csv'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Please upload a JSON file' in response.data
+
+
+def test_import_backup_rejects_invalid_json(logged_in_client):
+    """A .json file with invalid JSON content is rejected."""
+    buf = io.BytesIO(b'{this is not valid json}')
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (buf, 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Invalid JSON file' in response.data
+
+
+def test_import_backup_rejects_missing_ce_records_key(logged_in_client):
+    """Backup JSON without 'ce_records' key is rejected."""
+    backup = {'user': {'username': 'test'}, 'designations': []}
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'missing' in response.data.lower()
+    assert b'ce_records' in response.data
+
+
+def test_import_backup_skips_duplicates(logged_in_client, test_app, sample_user):
+    """Records matching existing (title + date + hours) are skipped."""
+    from models import CERecord, db
+    with test_app.app_context():
+        existing = CERecord(
+            user_id=sample_user['id'],
+            title='Already Here',
+            hours=2.0,
+            date_completed=date(2026, 1, 15),
+            description='',
+        )
+        db.session.add(existing)
+        db.session.commit()
+
+    backup = {
+        'ce_records': [
+            {'title': 'Already Here', 'hours': 2.0, 'date_completed': '2026-01-15'},
+            {'title': 'Brand New', 'hours': 3.0, 'date_completed': '2026-02-01'},
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 1 CE record' in response.data
+    assert b'1 skipped' in response.data
+
+    from models import CERecord as CR
+    with test_app.app_context():
+        assert CR.query.filter_by(user_id=sample_user['id']).count() == 2
+
+
+def test_import_backup_bad_date_falls_back_to_today(logged_in_client, test_app):
+    """Records with unparseable dates use today's date with a warning."""
+    backup = {
+        'ce_records': [
+            {'title': 'Bad Date Course', 'hours': 1.5, 'date_completed': 'not-a-date'},
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 1 CE record' in response.data
+    assert b'invalid date' in response.data.lower()
+
+    from models import CERecord
+    from datetime import date as dt_date
+    with test_app.app_context():
+        record = CERecord.query.filter_by(title='Bad Date Course').first()
+        assert record is not None
+        assert record.date_completed == dt_date.today()
+
+
+def test_import_backup_missing_date_uses_today(logged_in_client, test_app):
+    """Records with no date_completed field default to today."""
+    backup = {
+        'ce_records': [
+            {'title': 'No Date Course', 'hours': 2.0},
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 1 CE record' in response.data
+
+    from models import CERecord
+    from datetime import date as dt_date
+    with test_app.app_context():
+        record = CERecord.query.filter_by(title='No Date Course').first()
+        assert record is not None
+        assert record.date_completed == dt_date.today()
+
+
+def test_import_backup_no_file_selected(logged_in_client):
+    """Posting with no file returns an error."""
+    response = logged_in_client.post('/import_backup', data={},
+                                     content_type='multipart/form-data',
+                                     follow_redirects=True)
+    assert b'No file selected' in response.data
+
+
+def test_import_backup_skips_invalid_records(logged_in_client, test_app):
+    """Records missing title or with bad hours are skipped."""
+    backup = {
+        'ce_records': [
+            {'title': '', 'hours': 2.0, 'date_completed': '2026-01-01'},
+            {'title': 'No Hours', 'hours': 'abc', 'date_completed': '2026-01-01'},
+            {'title': 'Zero Hours', 'hours': 0, 'date_completed': '2026-01-01'},
+            {'title': 'Valid One', 'hours': 1.0, 'date_completed': '2026-01-01'},
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 1 CE record' in response.data
+    assert b'3 skipped' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        assert CERecord.query.count() == 1
+        assert CERecord.query.first().title == 'Valid One'

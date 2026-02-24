@@ -12,6 +12,7 @@
             <a href="{{ url_for('ce_records.export_ce', category=filter_category) }}" class="btn btn-secondary">📥 Export CSV</a>
             <a href="{{ url_for('ce_records.export_pdf', category=filter_category) }}" class="btn btn-secondary">📄 Export PDF</a>
             <a href="{{ url_for('ce_records.export_backup') }}" class="btn btn-secondary">💾 Backup Data</a>
+            <button type="button" class="btn btn-secondary" onclick="openRestoreModal()">📂 Restore Backup</button>
         </div>
     </div>
 
@@ -542,6 +543,45 @@
     </div>
 </div>
 
+<!-- Restore Backup Modal -->
+<div id="restoreBackupModal" class="modal">
+    <div class="modal-content import-modal">
+        <div class="modal-header">
+            <h2>Restore from Backup</h2>
+            <button type="button" class="modal-close" onclick="closeRestoreModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('ce_records.import_backup') }}" enctype="multipart/form-data" id="restoreBackupForm">
+            <div class="modal-body">
+                <p class="import-intro">Upload a JSON backup file previously exported from CE Tracker. Only CE records will be imported — duplicates are skipped automatically.</p>
+
+                <div class="form-group">
+                    <label for="backup_file">Select Backup File *</label>
+                    <div class="file-upload-area" id="restore-file-upload-area">
+                        <input type="file" id="backup_file" name="backup_file" accept=".json" required style="display: none;">
+                        <div class="file-upload-content">
+                            <svg class="file-upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="file-upload-text">Drag and drop your backup JSON file here, or <span class="file-upload-link">click to browse</span></p>
+                            <p class="file-upload-hint">Only .json files are accepted</p>
+                        </div>
+                        <div class="file-upload-preview" id="restore-file-preview" style="display: none;">
+                            <span class="file-name" id="restore-file-name"></span>
+                            <button type="button" class="file-remove" id="restore-file-remove">&times;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Restore Records</button>
+                <button type="button" class="btn btn-secondary" onclick="closeRestoreModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     // Import CSV Modal functions
     function openImportModal() {
@@ -619,6 +659,82 @@
         });
     })();
 
+    // Restore Backup Modal functions
+    function openRestoreModal() {
+        document.getElementById('restoreBackupModal').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeRestoreModal() {
+        document.getElementById('restoreBackupModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+        document.getElementById('restoreBackupForm').reset();
+        document.getElementById('restore-file-preview').style.display = 'none';
+        document.querySelector('#restore-file-upload-area .file-upload-content').style.display = 'block';
+    }
+
+    // Restore file upload handling
+    (function() {
+        var fileInput = document.getElementById('backup_file');
+        var uploadArea = document.getElementById('restore-file-upload-area');
+        var filePreview = document.getElementById('restore-file-preview');
+        var fileName = document.getElementById('restore-file-name');
+        var fileRemove = document.getElementById('restore-file-remove');
+        var uploadContent = uploadArea.querySelector('.file-upload-content');
+
+        uploadArea.addEventListener('click', function(e) {
+            if (e.target === uploadArea || e.target.closest('.file-upload-content')) {
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                if (!file.name.toLowerCase().endsWith('.json')) {
+                    alert('Please select a JSON file.');
+                    fileInput.value = '';
+                    return;
+                }
+                fileName.textContent = file.name;
+                uploadContent.style.display = 'none';
+                filePreview.style.display = 'flex';
+            }
+        });
+
+        fileRemove.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fileInput.value = '';
+            filePreview.style.display = 'none';
+            uploadContent.style.display = 'block';
+        });
+
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            var file = e.dataTransfer.files[0];
+            if (file) {
+                if (!file.name.toLowerCase().endsWith('.json')) {
+                    alert('Please drop a JSON file.');
+                    return;
+                }
+                fileInput.files = e.dataTransfer.files;
+                fileName.textContent = file.name;
+                uploadContent.style.display = 'none';
+                filePreview.style.display = 'flex';
+            }
+        });
+    })();
+
     // Modal functions
     function openAddCEModal() {
         document.getElementById('addCEModal').style.display = 'block';
@@ -636,6 +752,7 @@
         var addModal = document.getElementById('addCEModal');
         var editModal = document.getElementById('editCEModal');
         var importModal = document.getElementById('importCSVModal');
+        var restoreModal = document.getElementById('restoreBackupModal');
         if (event.target === addModal) {
             closeAddCEModal();
         }
@@ -644,6 +761,9 @@
         }
         if (event.target === importModal) {
             closeImportModal();
+        }
+        if (event.target === restoreModal) {
+            closeRestoreModal();
         }
     }
 
