@@ -50,3 +50,6 @@ Thumbs.db
 instance/
 .webassets-cache
 
+# Local dev scripts
+start-agents.ps1
+

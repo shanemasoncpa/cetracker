@@ -10,7 +10,7 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 ## Project Overview
 - **App**: CE Tracker - free web app for tracking Continuing Education credentials
 - **Stack**: Python Flask, SQLAlchemy, SQLite (dev) / PostgreSQL (prod), Jinja2 templates, vanilla CSS/JS
-- **Deployment**: Render (see `render.yaml`, `Procfile`, `runtime.txt`)
+- **Deployment**: Railway with PostgreSQL (migrated from Render, Feb 2026). Auto-deploys on push to `main`.
 - **Architecture**: Blueprint-based (refactored from monolithic app.py)
   - `app.py` — slim entry point (~105 lines), creates app, registers blueprints, schema migration
   - `models.py` — all SQLAlchemy models (User, CERecord, UserDesignation, Feedback)
@@ -20,7 +20,7 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
   - `blueprints/admin.py` — admin feedback routes with admin_required decorator
   - `blueprints/designations.py` — manage designations (add/remove)
   - `blueprints/profile.py` — profile/settings + feedback submission
-  - `tests/` — pytest suite (39 tests covering auth + routes)
+  - `tests/` — pytest suite (81 tests covering auth, routes, CSV import, backup)
 
 ## Agent Roles
 
@@ -78,7 +78,7 @@ NEEDS NEXT: [what should happen next, or "Nothing — ready for review"]
 | `static/js/*.js` | Frontend Agent | - |
 | `tests/` | QA Agent | - |
 | `CLAUDE.md` | Manager Agent | All agents should READ this |
-| `render.yaml`, `Procfile` | Manager Agent | - |
+| `Procfile`, `render.yaml` (legacy) | Manager Agent | - |
 
 ## Current State Assessment
 ### What's Built (Working) — as of 2026-02-23
@@ -96,17 +96,17 @@ NEEDS NEXT: [what should happen next, or "Nothing — ready for review"]
 - Feedback system (submit + admin view with is_admin role)
 - Dark mode toggle with localStorage persistence
 - Blueprint-based architecture (5 blueprints)
-- 53 passing pytest tests
+- 81 passing pytest tests
 - Mobile-responsive design
-- Deployed on Render with PostgreSQL
+- JSON backup export/import
+- Deployed on Railway with PostgreSQL (persistent DB)
 
 ### Known Issues
-1. **Database resets on Render free tier** — Render's free PostgreSQL plan recycles databases. Not a code bug. Fix: upgrade to paid plan ($7/mo). Workaround: CSV export/import for backup.
-2. **No email notifications** — Password reset generates a token but doesn't email it (user must use the direct link)
-3. **Certificate upload removed** — Removed because Render's ephemeral filesystem loses files on deploy. Will re-add when persistent storage is available (paid DB with BYTEA or S3).
+1. **No email notifications** — Password reset generates a token but doesn't email it (user must use the direct link)
+2. **Certificate upload removed** — Removed due to Render's ephemeral filesystem. Now on Railway with persistent storage — could re-add if needed (BYTEA or S3).
 
 ### Recently Removed
-- **Certificate PDF upload/download** — Removed from models.py, ce_records.py, app.py. Frontend cleanup in progress (dashboard.html, add_ce.html templates still have leftover UI).
+- **Certificate PDF upload/download** — Fully removed from backend and frontend (models.py, ce_records.py, app.py, dashboard.html, add_ce.html).
 
 ## Task Board
 Update this section as tasks are assigned and completed. Use status: TODO, IN PROGRESS, DONE.
@@ -123,20 +123,23 @@ Update this section as tasks are assigned and completed. Use status: TODO, IN PR
 | 13 | Admin auth (is_admin + decorator) | DONE |
 | 14 | Dark mode toggle | DONE |
 | 15 | Full QA pass | DONE |
-| 16 | Deploy and verify on Render | DONE |
+| 16 | Deploy and verify on Render (later migrated to Railway) | DONE |
 | 17 | Fix CPA state dropdown bug on registration | DONE |
 | 18 | CSV importer for historical CE records | DONE |
 | 19 | INVESTIGATE: DB reset on Render — Render free-tier PostgreSQL recycles DBs | DONE |
 | 20 | Add CSV import test coverage (14 new tests, 53 total) | DONE |
 | 21 | Improve mobile responsiveness of dashboard | DONE |
 | 22 | INVESTIGATE + REMOVE: Certificate upload — removed backend, frontend cleanup needed | DONE |
+| 23 | Remove certificate upload UI from templates | DONE |
+| 24 | Add "Export All Data" JSON backup endpoint | DONE |
+| 25 | Verify certificate removal doesn't break tests (81 passing) | DONE |
+| 26 | Migrate from Render to Railway with persistent PostgreSQL | DONE |
+| 27 | Update CLAUDE.md to reflect Railway deployment + current state | DONE |
 
 ### Current Sprint — ACTIVE TASKS
 | # | Task | Type | Agent | Status | Notes |
 |---|------|------|-------|--------|-------|
-| 23 | Remove certificate upload UI from templates | REMOVE | Frontend | IN PROGRESS | Remove certificate column, upload areas, JS handlers from dashboard/add_ce. KEEP .file-upload-* CSS. |
-| 24 | Add "Export All Data" JSON backup endpoint | IMPLEMENT | Backend | IN PROGRESS | GET /export_backup — exports user info, CE records, designations as downloadable JSON. Add to ce_records.py. |
-| 25 | Verify certificate removal doesn't break tests | INVESTIGATE | QA | IN PROGRESS | Check if any tests reference certificate stuff. Run full test suite. Report only — no edits. |
+| — | No active tasks | — | — | — | Ready for next sprint |
 
 ## Conventions
 - **Python**: Follow PEP 8, use type hints for new functions
