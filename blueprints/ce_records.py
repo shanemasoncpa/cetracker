@@ -99,7 +99,7 @@ def delete_ce(ce_id):
         flash('Please log in.', 'error')
         return redirect(url_for('auth.login'))
 
-    ce_record = CERecord.query.get_or_404(ce_id)
+    ce_record = db.get_or_404(CERecord, ce_id)
     if ce_record.user_id != session['user_id']:
         flash('You do not have permission to delete this record.', 'error')
         return redirect(url_for('ce_records.dashboard'))
@@ -116,7 +116,7 @@ def edit_ce(ce_id):
         flash('Please log in.', 'error')
         return redirect(url_for('auth.login'))
 
-    ce_record = CERecord.query.get_or_404(ce_id)
+    ce_record = db.get_or_404(CERecord, ce_id)
     if ce_record.user_id != session['user_id']:
         flash('You do not have permission to edit this record.', 'error')
         return redirect(url_for('ce_records.dashboard'))

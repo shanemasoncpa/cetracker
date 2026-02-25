@@ -96,7 +96,7 @@ NEEDS NEXT: [what should happen next, or "Nothing — ready for review"]
 - Feedback system (submit + admin view with is_admin role)
 - Dark mode toggle with localStorage persistence
 - Blueprint-based architecture (5 blueprints)
-- 81 passing pytest tests
+- 90 passing pytest tests (0 warnings)
 - Mobile-responsive design
 - JSON backup export/import
 - Deployed on Railway with PostgreSQL (persistent DB)
@@ -139,7 +139,9 @@ Update this section as tasks are assigned and completed. Use status: TODO, IN PR
 ### Current Sprint — ACTIVE TASKS
 | # | Task | Type | Agent | Status | Notes |
 |---|------|------|-------|--------|-------|
-| — | No active tasks | — | — | — | Ready for next sprint |
+| 28 | Fix SQLAlchemy Query.get() deprecation warnings | FIX | Backend+QA | DONE | 9 fixes total, 0 warnings remaining |
+| 29 | Add test coverage for export/import backup endpoints | IMPLEMENT | QA | DONE | 9 new tests, 90 total passing |
+| 30 | Remove legacy render.yaml from repo | REMOVE | Manager | DONE | Committed bc034c9 |
 
 ## Conventions
 - **Python**: Follow PEP 8, use type hints for new functions

@@ -68,7 +68,7 @@ def manage_designations():
 
         elif action == 'remove':
             designation_id = request.form.get('designation_id')
-            ud = UserDesignation.query.get_or_404(designation_id)
+            ud = db.get_or_404(UserDesignation, designation_id)
 
             if ud.user_id != user.id:
                 flash('You do not have permission to remove this designation.', 'error')

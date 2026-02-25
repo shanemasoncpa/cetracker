@@ -581,6 +581,110 @@ def test_export_backup_contains_ce_records(logged_in_client, test_app, sample_us
     assert rec['napfa_subject_area'] == 'Ethics'
 
 
+def test_export_backup_multiple_records_ordered(logged_in_client, test_app, sample_user):
+    """Backup exports multiple CE records in descending date order."""
+    from models import CERecord, db
+    with test_app.app_context():
+        for i, (title, d) in enumerate([
+            ('Oldest', date(2025, 6, 1)),
+            ('Middle', date(2026, 1, 15)),
+            ('Newest', date(2026, 3, 1)),
+        ]):
+            db.session.add(CERecord(
+                user_id=sample_user['id'],
+                title=title,
+                hours=1.0 + i,
+                date_completed=d,
+            ))
+        db.session.commit()
+
+    response = logged_in_client.get('/export_backup')
+    data = json.loads(response.data)
+
+    assert len(data['ce_records']) == 3
+    # Should be descending by date: Newest, Middle, Oldest
+    assert data['ce_records'][0]['title'] == 'Newest'
+    assert data['ce_records'][1]['title'] == 'Middle'
+    assert data['ce_records'][2]['title'] == 'Oldest'
+
+
+def test_export_backup_napfa_member(logged_in_client, test_app, sample_user):
+    """Backup correctly serializes napfa_join_date for NAPFA members."""
+    from models import User, db
+    with test_app.app_context():
+        user = db.session.get(User, sample_user['id'])
+        user.is_napfa_member = True
+        user.napfa_join_date = date(2024, 5, 1)
+        db.session.commit()
+
+    response = logged_in_client.get('/export_backup')
+    data = json.loads(response.data)
+
+    assert data['user']['is_napfa_member'] is True
+    assert data['user']['napfa_join_date'] == '2024-05-01'
+
+
+def test_export_backup_empty_records(logged_in_client):
+    """Backup works when user has no CE records or designations."""
+    response = logged_in_client.get('/export_backup')
+    data = json.loads(response.data)
+
+    assert data['ce_records'] == []
+    assert data['designations'] == []
+    assert 'user' in data
+    assert 'exported_at' in data
+
+
+def test_export_import_round_trip(logged_in_client, test_app, sample_user):
+    """Export then re-import preserves all CE record data."""
+    from models import CERecord, db
+    with test_app.app_context():
+        db.session.add(CERecord(
+            user_id=sample_user['id'],
+            title='Round Trip Course',
+            provider='Test Provider',
+            hours=3.5,
+            date_completed=date(2026, 2, 10),
+            category='Ethics',
+            description='Round trip test',
+            is_napfa_approved=True,
+            is_ethics_course=True,
+            napfa_subject_area='Ethics',
+        ))
+        db.session.commit()
+
+    # Export
+    export_resp = logged_in_client.get('/export_backup')
+    assert export_resp.status_code == 200
+    backup_data = json.loads(export_resp.data)
+
+    # Delete existing record
+    with test_app.app_context():
+        CERecord.query.filter_by(user_id=sample_user['id']).delete()
+        db.session.commit()
+        assert CERecord.query.filter_by(user_id=sample_user['id']).count() == 0
+
+    # Re-import the exported data
+    backup_file = io.BytesIO(json.dumps(backup_data).encode('utf-8'))
+    import_resp = logged_in_client.post('/import_backup', data={
+        'backup_file': (backup_file, 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 1 CE record' in import_resp.data
+
+    with test_app.app_context():
+        rec = CERecord.query.filter_by(user_id=sample_user['id']).first()
+        assert rec.title == 'Round Trip Course'
+        assert rec.provider == 'Test Provider'
+        assert rec.hours == 3.5
+        assert rec.date_completed == date(2026, 2, 10)
+        assert rec.category == 'Ethics'
+        assert rec.description == 'Round trip test'
+        assert rec.is_napfa_approved is True
+        assert rec.is_ethics_course is True
+        assert rec.napfa_subject_area == 'Ethics'
+
+
 # ── JSON Backup Import Tests ─────────────────────────────────────────────────
 
 
@@ -787,6 +891,86 @@ def test_import_backup_skips_invalid_records(logged_in_client, test_app):
         assert CERecord.query.first().title == 'Valid One'
 
 
+def test_import_backup_ce_records_not_array(logged_in_client):
+    """Backup where ce_records is not a list is rejected."""
+    backup = {'ce_records': 'not an array'}
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'must be an array' in response.data
+
+
+def test_import_backup_record_not_dict(logged_in_client, test_app):
+    """Non-dict entries in ce_records are skipped."""
+    backup = {
+        'ce_records': [
+            'just a string',
+            42,
+            {'title': 'Valid Record', 'hours': 1.0, 'date_completed': '2026-01-01'},
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 1 CE record' in response.data
+    assert b'2 skipped' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        assert CERecord.query.count() == 1
+        assert CERecord.query.first().title == 'Valid Record'
+
+
+def test_import_backup_empty_filename(logged_in_client):
+    """Upload with empty filename is rejected."""
+    buf = io.BytesIO(b'{}')
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (buf, ''),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'No file selected' in response.data
+
+
+def test_import_backup_negative_hours(logged_in_client, test_app):
+    """Records with negative hours are skipped."""
+    backup = {
+        'ce_records': [
+            {'title': 'Negative Hours', 'hours': -2.0, 'date_completed': '2026-01-01'},
+            {'title': 'Good Record', 'hours': 1.0, 'date_completed': '2026-01-01'},
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'Successfully restored 1 CE record' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        assert CERecord.query.count() == 1
+        assert CERecord.query.first().title == 'Good Record'
+
+
+def test_import_backup_null_hours(logged_in_client, test_app):
+    """Records with null/None hours are skipped."""
+    backup = {
+        'ce_records': [
+            {'title': 'Null Hours', 'hours': None, 'date_completed': '2026-01-01'},
+        ]
+    }
+    response = logged_in_client.post('/import_backup', data={
+        'backup_file': (_make_backup_file(backup), 'backup.json'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'1 skipped' in response.data
+
+    from models import CERecord
+    with test_app.app_context():
+        assert CERecord.query.count() == 0
+
+
 # ── Admin Feedback Tests ─────────────────────────────────────────────────────
 
 ADMIN_KEY = 'cetracker2025admin'
@@ -818,9 +1002,9 @@ def test_admin_toggle_feedback_read(client, test_app):
     )
     assert response.status_code == 200
 
-    from models import Feedback
+    from models import Feedback, db
     with test_app.app_context():
-        fb = Feedback.query.get(fb_id)
+        fb = db.session.get(Feedback, fb_id)
         assert fb.is_read is True
 
 
@@ -833,9 +1017,9 @@ def test_admin_toggle_feedback_read_back(client, test_app):
     # Toggle back to False
     client.post(f'/admin/feedback/{fb_id}/toggle_read?key={ADMIN_KEY}')
 
-    from models import Feedback
+    from models import Feedback, db
     with test_app.app_context():
-        fb = Feedback.query.get(fb_id)
+        fb = db.session.get(Feedback, fb_id)
         assert fb.is_read is False
 
 
@@ -861,9 +1045,9 @@ def test_admin_delete_feedback(client, test_app):
     assert response.status_code == 200
     assert b'Feedback deleted' in response.data
 
-    from models import Feedback
+    from models import Feedback, db
     with test_app.app_context():
-        assert Feedback.query.get(fb_id) is None
+        assert db.session.get(Feedback, fb_id) is None
 
 
 def test_admin_delete_feedback_requires_auth(client, test_app):
@@ -876,9 +1060,9 @@ def test_admin_delete_feedback_requires_auth(client, test_app):
     )
     assert b'Unauthorized' in response.data
 
-    from models import Feedback
+    from models import Feedback, db
     with test_app.app_context():
-        assert Feedback.query.get(fb_id) is not None
+        assert db.session.get(Feedback, fb_id) is not None
 
 
 # ── NAPFA Tracking Toggle Test ───────────────────────────────────────────────

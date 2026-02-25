@@ -63,7 +63,7 @@ def view_feedback():
 @admin_bp.route('/feedback/<int:feedback_id>/toggle_read', methods=['POST'])
 @admin_required
 def toggle_feedback_read(feedback_id):
-    feedback = Feedback.query.get_or_404(feedback_id)
+    feedback = db.get_or_404(Feedback, feedback_id)
     feedback.is_read = not feedback.is_read
     db.session.commit()
 
@@ -74,7 +74,7 @@ def toggle_feedback_read(feedback_id):
 @admin_bp.route('/feedback/<int:feedback_id>/delete', methods=['POST'])
 @admin_required
 def delete_feedback(feedback_id):
-    feedback = Feedback.query.get_or_404(feedback_id)
+    feedback = db.get_or_404(Feedback, feedback_id)
     db.session.delete(feedback)
     db.session.commit()
     flash('Feedback deleted.', 'success')
