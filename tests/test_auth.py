@@ -13,6 +13,7 @@ def test_register_success(client):
         'email': 'new@example.com',
         'password': 'password123',
         'confirm_password': 'password123',
+        'disclaimer_ack': 'on',
     }, follow_redirects=True)
     assert response.status_code == 200
     assert b'Registration successful' in response.data
@@ -24,6 +25,7 @@ def test_register_duplicate_username(client, sample_user):
         'email': 'different@example.com',
         'password': 'password123',
         'confirm_password': 'password123',
+        'disclaimer_ack': 'on',
     }, follow_redirects=True)
     assert b'Username already exists' in response.data
 
@@ -34,8 +36,19 @@ def test_register_duplicate_email(client, sample_user):
         'email': 'test@example.com',
         'password': 'password123',
         'confirm_password': 'password123',
+        'disclaimer_ack': 'on',
     }, follow_redirects=True)
     assert b'Email already exists' in response.data
+
+
+def test_register_without_disclaimer_ack(client):
+    response = client.post('/register', data={
+        'username': 'newuser',
+        'email': 'new@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123',
+    }, follow_redirects=True)
+    assert b'You must acknowledge the disclaimer to register' in response.data
 
 
 def test_register_password_mismatch(client):

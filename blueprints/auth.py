@@ -38,7 +38,11 @@ def register():
             'is_napfa_member': is_napfa_member, 'napfa_join_date': napfa_join_date
         }
 
+        disclaimer_ack = request.form.get('disclaimer_ack')
+
         errors = []
+        if not disclaimer_ack:
+            errors.append('You must acknowledge the disclaimer to register.')
         if not username:
             errors.append('Username is required.')
         if not email:

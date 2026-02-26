@@ -20,6 +20,20 @@
     --border-color: #e2e8f0;
     --input-bg: #ffffff;
     --table-stripe: #f8fafc;
+    --success-bg: #d1fae5;
+    --success-text: #065f46;
+    --danger-bg: #fee2e2;
+    --danger-text: #991b1b;
+    --info-bg: #dbeafe;
+    --info-text: #1e40af;
+    --warning-bg: #fffbeb;
+    --warning-text: #92400e;
+    --upload-hover-bg: #f0f7ff;
+    --upload-dragover-bg: #e0f2fe;
+    --badge-question-bg: #e0e7ff;
+    --badge-question-text: #3730a3;
+    --badge-other-bg: #f3f4f6;
+    --badge-other-text: #374151;
     --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -40,6 +54,20 @@
     --border-color: #334155;
     --input-bg: #1e293b;
     --table-stripe: #1a2332;
+    --success-bg: #064e3b;
+    --success-text: #6ee7b7;
+    --danger-bg: #7f1d1d;
+    --danger-text: #fca5a5;
+    --info-bg: #1e3a5f;
+    --info-text: #93c5fd;
+    --warning-bg: #78350f;
+    --warning-text: #fde68a;
+    --upload-hover-bg: #1e3a5f;
+    --upload-dragover-bg: #1e3a5f;
+    --badge-question-bg: #312e81;
+    --badge-question-text: #a5b4fc;
+    --badge-other-bg: #374151;
+    --badge-other-text: #d1d5db;
     --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
@@ -160,20 +188,20 @@ body {
 }
 
 .flash-success {
-    background-color: #d1fae5;
-    color: #065f46;
+    background-color: var(--success-bg);
+    color: var(--success-text);
     border-left: 4px solid var(--success-color);
 }
 
 .flash-error {
-    background-color: #fee2e2;
-    color: #991b1b;
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
     border-left: 4px solid var(--danger-color);
 }
 
 .flash-info {
-    background-color: #dbeafe;
-    color: #1e40af;
+    background-color: var(--info-bg);
+    color: var(--info-text);
     border-left: 4px solid var(--info-color);
 }
 
@@ -230,6 +258,31 @@ body {
 }
 
 .auth-link a:hover {
+    text-decoration: underline;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+}
+
+.checkbox-label a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.checkbox-label a:hover {
     text-decoration: underline;
 }
 
@@ -430,7 +483,8 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     font-size: 1rem;
-    background-color: white;
+    background-color: var(--input-bg);
+    color: var(--text-primary);
     cursor: pointer;
     transition: border-color 0.2s, box-shadow 0.2s;
     min-width: 200px;
@@ -545,6 +599,28 @@ body {
     white-space: nowrap;
 }
 
+.description-cell[title] {
+    cursor: pointer;
+}
+
+.description-full {
+    display: none;
+}
+
+.description-cell.expanded {
+    white-space: normal;
+    overflow: visible;
+    max-width: none;
+}
+
+.description-cell.expanded .description-ellipsis {
+    display: none;
+}
+
+.description-cell.expanded .description-full {
+    display: inline;
+}
+
 .actions-cell {
     white-space: nowrap;
 }
@@ -609,6 +685,77 @@ body {
     color: var(--text-secondary);
     margin-top: auto;
     border-top: 1px solid var(--border-color);
+}
+
+.footer-disclaimer {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: 0.75rem auto 0;
+    line-height: 1.5;
+    opacity: 0.85;
+}
+
+.footer-disclaimer a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.footer-disclaimer a:hover {
+    text-decoration: underline;
+}
+
+/* Disclaimer Page */
+.disclaimer-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.disclaimer-card {
+    background-color: var(--card-bg);
+    padding: 2.5rem;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow);
+}
+
+.disclaimer-card h1 {
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    font-size: 1.75rem;
+}
+
+.disclaimer-updated {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+    font-style: italic;
+}
+
+.disclaimer-card h2 {
+    color: var(--text-primary);
+    font-size: 1.15rem;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.disclaimer-card p {
+    color: var(--text-primary);
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+}
+
+.disclaimer-card ul {
+    color: var(--text-primary);
+    margin: 0.5rem 0 1rem 1.5rem;
+    line-height: 1.7;
+}
+
+.disclaimer-card li {
+    margin-bottom: 0.35rem;
 }
 
 /* Designations */
@@ -802,7 +949,7 @@ body {
 
 .napfa-requirement-item.complete {
     border-color: var(--success-color);
-    background-color: #d1fae5;
+    background-color: var(--success-bg);
 }
 
 .requirement-header {
@@ -872,14 +1019,14 @@ body {
 
 .napfa-complete-message {
     padding: 1rem;
-    background-color: #d1fae5;
+    background-color: var(--success-bg);
     border-left: 4px solid var(--success-color);
     border-radius: 0.5rem;
     margin-top: 1rem;
 }
 
 .napfa-complete-message p {
-    color: #065f46;
+    color: var(--success-text);
     margin: 0;
     font-weight: 500;
 }
@@ -913,13 +1060,13 @@ body {
 }
 
 .napfa-badge.approved {
-    background-color: #dbeafe;
-    color: #1e40af;
+    background-color: var(--info-bg);
+    color: var(--info-text);
 }
 
 .napfa-badge.ethics {
-    background-color: #fef3c7;
-    color: #92400e;
+    background-color: var(--warning-bg);
+    color: var(--warning-text);
 }
 
 .napfa-badge.none {
@@ -962,7 +1109,7 @@ body {
 
 .requirement-card.complete {
     border-color: var(--success-color);
-    background-color: #d1fae5;
+    background-color: var(--success-bg);
 }
 
 .requirement-header {
@@ -1116,12 +1263,12 @@ body {
 
 .file-upload-area:hover {
     border-color: var(--primary-color);
-    background-color: #f0f7ff;
+    background-color: var(--upload-hover-bg);
 }
 
 .file-upload-area.drag-over {
     border-color: var(--primary-color);
-    background-color: #e0f2fe;
+    background-color: var(--upload-dragover-bg);
     transform: scale(1.02);
 }
 
@@ -1197,7 +1344,7 @@ body {
 }
 
 .file-remove:hover {
-    background-color: #fee2e2;
+    background-color: var(--danger-bg);
 }
 
 /* Responsive Design */
@@ -1582,7 +1729,7 @@ body {
 
 .import-format-info h4 {
     margin-bottom: 0.5rem;
-    color: var(--text-color);
+    color: var(--text-primary);
 }
 
 .import-format-info p {
@@ -1607,7 +1754,7 @@ body {
 
 .import-format-table th {
     font-weight: 600;
-    color: var(--text-color);
+    color: var(--text-primary);
 }
 
 .import-format-table td {
@@ -1653,7 +1800,7 @@ body {
 }
 
 .import-preview-errors h4 {
-    color: #991b1b;
+    color: var(--danger-text);
     margin-bottom: 0.5rem;
     font-size: 0.9rem;
 }
@@ -1871,7 +2018,7 @@ body {
 
 .feedback-item.unread {
     border-left-color: var(--warning-color);
-    background-color: #fffbeb;
+    background-color: var(--warning-bg);
 }
 
 .feedback-item.type-bug {
@@ -1939,28 +2086,28 @@ body {
 }
 
 .feedback-type-badge.bug {
-    background-color: #fee2e2;
-    color: #991b1b;
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
 }
 
 .feedback-type-badge.feature {
-    background-color: #d1fae5;
-    color: #065f46;
+    background-color: var(--success-bg);
+    color: var(--success-text);
 }
 
 .feedback-type-badge.general {
-    background-color: #dbeafe;
-    color: #1e40af;
+    background-color: var(--info-bg);
+    color: var(--info-text);
 }
 
 .feedback-type-badge.question {
-    background-color: #e0e7ff;
-    color: #3730a3;
+    background-color: var(--badge-question-bg);
+    color: var(--badge-question-text);
 }
 
 .feedback-type-badge.other {
-    background-color: #f3f4f6;
-    color: #374151;
+    background-color: var(--badge-other-bg);
+    color: var(--badge-other-text);
 }
 
 .feedback-item-date {
@@ -2167,15 +2314,6 @@ body {
     font-weight: 600;
     color: var(--text-secondary);
     text-align: right;
-}
-
-.empty-state {
-    background: var(--card-bg);
-    padding: 3rem;
-    border-radius: 0.75rem;
-    box-shadow: var(--shadow);
-    text-align: center;
-    color: var(--text-secondary);
 }
 
 @media (max-width: 768px) {

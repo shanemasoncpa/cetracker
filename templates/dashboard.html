@@ -264,7 +264,12 @@
                         {% endif %}
                     </td>
                     {% endif %}
-                    <td class="description-cell">{{ record.description[:50] }}{% if record.description|length > 50 %}...{% endif %}</td>
+                    <td class="description-cell"
+                        {% if record.description|length > 50 %}
+                        title="{{ record.description }}"
+                        onclick="this.classList.toggle('expanded')"
+                        {% endif %}
+                    >{{ record.description[:50] }}{% if record.description|length > 50 %}<span class="description-ellipsis">...</span><span class="description-full">{{ record.description[50:] }}</span>{% endif %}</td>
                     <td class="actions-cell">
                         <button type="button" class="btn btn-primary btn-sm edit-ce-btn"
                                 data-id="{{ record.id }}"
@@ -775,7 +780,7 @@
     }
 
     // Close modals when clicking outside
-    window.onclick = function(event) {
+    window.addEventListener('click', function(event) {
         var addModal = document.getElementById('addCEModal');
         var editModal = document.getElementById('editCEModal');
         var importModal = document.getElementById('importCSVModal');
@@ -792,7 +797,29 @@
         if (event.target === restoreModal) {
             closeRestoreModal();
         }
-    }
+    });
+
+    // Close modals with Escape key
+    window.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            var addModal = document.getElementById('addCEModal');
+            var editModal = document.getElementById('editCEModal');
+            var importModal = document.getElementById('importCSVModal');
+            var restoreModal = document.getElementById('restoreBackupModal');
+            if (addModal && addModal.style.display === 'flex') {
+                closeAddCEModal();
+            }
+            if (editModal && editModal.style.display === 'flex') {
+                closeEditCEModal();
+            }
+            if (importModal && importModal.style.display === 'flex') {
+                closeImportModal();
+            }
+            if (restoreModal && restoreModal.style.display === 'flex') {
+                closeRestoreModal();
+            }
+        }
+    });
 
     // ==========================================
     // Edit CE Modal Functions

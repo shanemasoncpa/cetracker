@@ -126,6 +126,13 @@
                 </div>
             </div>
             
+            <div class="form-group" style="margin-top: 1rem;">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="disclaimer_ack" required>
+                    I understand that CE Tracker is a personal tracking tool only and does not guarantee compliance with any regulatory body's requirements. <a href="/disclaimer" target="_blank">Read full disclaimer</a>
+                </label>
+            </div>
+
             <button type="submit" class="btn btn-primary">Register</button>
         </form>
         <p class="auth-link">
@@ -180,55 +187,6 @@
         }
         
         return true;
-    }
-    
-    function toggleCfpBirthMonth(checkbox, designation) {
-        const cfpGroup = document.getElementById('cfp-birth-month-group');
-        const cfpInput = document.getElementById('cfp_birth_month');
-        const cpaGroup = document.getElementById('cpa-state-group');
-        const cpaInput = document.getElementById('cpa_state');
-        
-        // Handle CFP designation
-        if (designation === 'CFP') {
-            if (checkbox.checked) {
-                cfpGroup.style.display = 'block';
-                cfpInput.required = true;
-            } else {
-                // Check if any other CFP checkbox is checked
-                const cfpCheckboxes = document.querySelectorAll('input[name="designations"][value="CFP"]');
-                let hasCfp = false;
-                cfpCheckboxes.forEach(cb => {
-                    if (cb.checked && cb !== checkbox) hasCfp = true;
-                });
-                
-                if (!hasCfp) {
-                    cfpGroup.style.display = 'none';
-                    cfpInput.required = false;
-                    cfpInput.value = '';
-                }
-            }
-        }
-        
-        // Handle CPA designation
-        if (designation === 'CPA') {
-            if (checkbox.checked) {
-                cpaGroup.style.display = 'block';
-                cpaInput.required = true;
-            } else {
-                // Check if any other CPA checkbox is checked
-                const cpaCheckboxes = document.querySelectorAll('input[name="designations"][value="CPA"]');
-                let hasCpa = false;
-                cpaCheckboxes.forEach(cb => {
-                    if (cb.checked && cb !== checkbox) hasCpa = true;
-                });
-                
-                if (!hasCpa) {
-                    cpaGroup.style.display = 'none';
-                    cpaInput.required = false;
-                    cpaInput.value = '';
-                }
-            }
-        }
     }
     
     function toggleNapfaJoinDate() {

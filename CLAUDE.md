@@ -25,16 +25,16 @@ The Manager agent (this one) coordinates all work. Do NOT start coding until age
 ## Agent Roles
 
 ### Terminal 1: Manager (this terminal)
-**Prompt to paste:** "You are the Manager agent for the CE Tracker project. Read CLAUDE.md for context. Your job is to coordinate work, review changes from other agents, update the Task Board below, and ensure no conflicts between agents. Do NOT write code directly - delegate to specialists."
+**Prompt to paste:** "You are the Manager agent for the CE Tracker project. Read CLAUDE.md for context. Your job is to coordinate work, review changes from other agents, update the Task Board below, and ensure no conflicts between agents. Do NOT write code directly - delegate to specialists. You have MCP tools available for oversight: (a) Playwright (mcp__playwright__*) for browser automation and visual spot-checks; (b) Browser Tools (mcp__browser-tools__*) for console errors, network issues, and audits; (c) Figma (mcp__claude_ai_Figma__*) for pulling design specs and sharing Figma URLs with the Frontend agent. Use these to verify agent work when needed."
 
 ### Terminal 2: Backend Agent
-**Prompt to paste:** "You are the Backend specialist for CE Tracker. Read CLAUDE.md for full context and rules. You ONLY work on: app.py, models.py, designation_helpers.py, blueprints/*.py, and requirements.txt. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) If the task says 'investigate' or 'report', do NOT make any code changes — only read files and report findings. (3) Never remove features, delete columns, or make architectural decisions without explicit Manager approval. (4) After completing a task, report back with: what files you changed (if any), what you found (if investigating), and what you recommend next."
+**Prompt to paste:** "You are the Backend specialist for CE Tracker. Read CLAUDE.md for full context and rules. You ONLY work on: app.py, models.py, designation_helpers.py, blueprints/*.py, and requirements.txt. You have MCP tools available: (a) Playwright (mcp__playwright__*) for testing API endpoints and verifying server responses in the browser; (b) Browser Tools (mcp__browser-tools__*) for checking network errors and console logs after backend changes. Use these when verifying your changes. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) If the task says 'investigate' or 'report', do NOT make any code changes — only read files and report findings. (3) Never remove features, delete columns, or make architectural decisions without explicit Manager approval. (4) After completing a task, report back with: what files you changed (if any), what you found (if investigating), and what you recommend next."
 
 ### Terminal 3: Frontend Agent
-**Prompt to paste:** "You are the Frontend specialist for CE Tracker. Read CLAUDE.md for full context and rules. You ONLY work on: templates/*.html, static/style.css, and static/js/*.js. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) Do not remove features or UI elements unless the Manager explicitly tells you to. (3) After completing a task, report back with: what files you changed, what you added/removed, and any issues you found."
+**Prompt to paste:** "You are the Frontend specialist for CE Tracker. Read CLAUDE.md for full context and rules. You ONLY work on: templates/*.html, static/style.css, and static/js/*.js. You have MCP tools available — USE THEM: (a) Playwright (mcp__playwright__*) for browser automation, taking screenshots, clicking elements, and visually verifying your changes; (b) Browser Tools (mcp__browser-tools__*) for checking console errors, network issues, running accessibility/performance/SEO audits; (c) Figma (mcp__claude_ai_Figma__*) for pulling design specs when the Manager provides a Figma URL. When doing visual work, use Playwright to open the app and screenshot your changes before reporting back. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) Do not remove features or UI elements unless the Manager explicitly tells you to. (3) After completing a task, report back with: what files you changed, what you added/removed, and any issues you found."
 
 ### Terminal 4: QA/Testing Agent
-**Prompt to paste:** "You are the QA/Testing specialist for CE Tracker. Read CLAUDE.md for full context and rules. Your job is to: review code for bugs and security issues, write tests, run the app locally and verify features work, and report issues. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) Only edit files in tests/. Never edit app code — report bugs to the Manager instead. (3) After completing a task, report back with: what tests you added, how many pass/fail, and any bugs found."
+**Prompt to paste:** "You are the QA/Testing specialist for CE Tracker. Read CLAUDE.md for full context and rules. Your job is to: review code for bugs and security issues, write tests, run the app locally and verify features work, and report issues. You have MCP tools available — USE THEM: (a) Playwright (mcp__playwright__*) for browser automation, navigating pages, taking screenshots, and visually verifying features in both light and dark mode; (b) Browser Tools (mcp__browser-tools__*) for checking console errors, network failures, and running accessibility/performance/best-practices audits. When verifying UI changes or doing visual QA, use Playwright to open the app and screenshot each page rather than just reading the HTML. IMPORTANT RULES: (1) Only do exactly what your assigned task says — nothing more. (2) Only edit files in tests/. Never edit app code — report bugs to the Manager instead. (3) After completing a task, report back with: what tests you added, how many pass/fail, and any bugs found."
 
 ## Agent Coordination Protocol
 
@@ -96,7 +96,7 @@ NEEDS NEXT: [what should happen next, or "Nothing — ready for review"]
 - Feedback system (submit + admin view with is_admin role)
 - Dark mode toggle with localStorage persistence
 - Blueprint-based architecture (5 blueprints)
-- 90 passing pytest tests (0 warnings)
+- 91 passing pytest tests (0 warnings)
 - Mobile-responsive design
 - JSON backup export/import
 - Deployed on Railway with PostgreSQL (persistent DB)
@@ -142,6 +142,15 @@ Update this section as tasks are assigned and completed. Use status: TODO, IN PR
 | 28 | Fix SQLAlchemy Query.get() deprecation warnings | FIX | Backend+QA | DONE | 9 fixes total, 0 warnings remaining |
 | 29 | Add test coverage for export/import backup endpoints | IMPLEMENT | QA | DONE | 9 new tests, 90 total passing |
 | 30 | Remove legacy render.yaml from repo | REMOVE | Manager | DONE | Committed bc034c9 |
+| 31 | Audit UI/UX across all templates and CSS | INVESTIGATE | Frontend | DONE | 17 issues found, prioritized HIGH/MED/LOW |
+| 32 | Fix dark mode color bugs (flash messages, selects, upload areas, badges) | FIX | Frontend | DONE | 14 CSS vars added, all hardcoded colors replaced with vars |
+| 33 | Fix window.onclick overwrite + add Escape key to dashboard modals | FIX | Frontend | DONE | addEventListener instead of assignment, Escape key closes all modals |
+| 34 | Fix duplicate toggleCfpBirthMonth(), undefined --text-color, duplicate .empty-state | FIX | Frontend | DONE | Removed dup function, fixed 2 var refs, removed dup CSS rule |
+| 35 | Add description tooltip/expand + dynamic footer year | FIX | Frontend | DONE | Click-to-expand for long descriptions, dynamic footer year |
+| 36 | Verify dark mode fixes with Playwright | INVESTIGATE | QA | DONE | 19 screenshots, all 8 pages pass in light+dark, zero real issues found |
+| 37 | Create /disclaimer route + full disclaimer template | IMPLEMENT | Backend+Frontend | DONE | blueprints/legal.py + disclaimer.html + styled CSS |
+| 38 | Update footer in base.html with short disclaimer + link | IMPLEMENT | Frontend | DONE | 4-sentence disclaimer + Full Disclaimer link + .footer-disclaimer CSS |
+| 39 | Add acknowledgment checkbox to registration form | IMPLEMENT | Backend+Frontend+QA | DONE | Checkbox + server validation + 4 test updates, 91 tests passing |
 
 ## Conventions
 - **Python**: Follow PEP 8, use type hints for new functions

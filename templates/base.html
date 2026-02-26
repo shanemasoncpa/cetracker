@@ -56,7 +56,9 @@
     </main>
 
     <footer class="footer">
-        <p>&copy; 2026 CE Tracker. Free and open for all professionals.</p>
+        <p>&copy; <span id="footerYear"></span> CE Tracker</p>
+        <p class="footer-disclaimer">CE Tracker is a personal record-keeping tool only. It is not affiliated with the CFP Board, AICPA, CFA Institute, IRS, or any regulatory body. CE requirement calculations may not reflect current rules — always verify your compliance directly with your credentialing organization. This tool does not constitute professional advice. <a href="/disclaimer">Full Disclaimer</a></p>
+        <script>document.getElementById('footerYear').textContent = new Date().getFullYear();</script>
     </footer>
 
     <!-- Floating Feedback Button -->

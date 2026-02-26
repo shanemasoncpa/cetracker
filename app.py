@@ -26,12 +26,14 @@ from blueprints.ce_records import ce_bp
 from blueprints.admin import admin_bp
 from blueprints.designations import designations_bp
 from blueprints.profile import profile_bp
+from blueprints.legal import legal_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(ce_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(designations_bp)
 app.register_blueprint(profile_bp)
+app.register_blueprint(legal_bp)
 
 
 def update_database_schema():
