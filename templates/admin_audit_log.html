@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log - CE Logbook Admin{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>Audit Log</h1>
+    </div>
+
+    <p style="margin-bottom: 1rem;">
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-secondary btn-sm">&larr; Back to Admin Dashboard</a>
+    </p>
+
+    {% if logs %}
+    <div class="admin-section">
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Admin</th>
+                        <th>Action</th>
+                        <th>Target User</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.timestamp.strftime('%b %d, %Y %I:%M %p') }}</td>
+                        <td>{{ log.admin_username }}</td>
+                        <td>{{ log.action }}</td>
+                        <td>{{ log.target_user_id if log.target_user_id else '-' }}</td>
+                        <td>{{ log.details or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No audit log entries yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

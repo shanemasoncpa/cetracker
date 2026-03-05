@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 
 from models import db, User, UserDesignation
@@ -79,6 +80,29 @@ def manage_designations():
             db.session.commit()
 
             flash(f'{designation_name} designation removed successfully!', 'success')
+            return redirect(url_for('designations.manage_designations'))
+
+        elif action == 'set_due_date':
+            designation_id = request.form.get('designation_id')
+            custom_date_str = request.form.get('custom_period_end', '').strip()
+            ud = db.get_or_404(UserDesignation, designation_id)
+
+            if ud.user_id != user.id:
+                flash('You do not have permission to modify this designation.', 'error')
+                return redirect(url_for('designations.manage_designations'))
+
+            if custom_date_str:
+                try:
+                    ud.custom_period_end = datetime.strptime(custom_date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    flash('Invalid date format.', 'error')
+                    return redirect(url_for('designations.manage_designations'))
+                flash(f'Due date for {ud.designation} set to {ud.custom_period_end.strftime("%b %d, %Y")}.', 'success')
+            else:
+                ud.custom_period_end = None
+                flash(f'Due date for {ud.designation} reset to auto-calculated.', 'success')
+
+            db.session.commit()
             return redirect(url_for('designations.manage_designations'))
 
     return render_template('manage_designations.html',

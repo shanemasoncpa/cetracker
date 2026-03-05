@@ -1997,6 +1997,145 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.admin-section {
+    background-color: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+}
+
+.admin-section h2 {
+    color: var(--text-primary);
+    font-size: 1.15rem;
+    margin-bottom: 1rem;
+}
+
+.admin-search {
+    margin-bottom: 1rem;
+}
+
+.admin-search input {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-search input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.admin-table-wrapper {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.admin-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.admin-table td {
+    color: var(--text-primary);
+}
+
+.admin-table tbody tr:hover {
+    background-color: var(--table-stripe);
+}
+
+.admin-user-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.admin-user-link:hover {
+    text-decoration: underline;
+}
+
+.admin-badge {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background-color: var(--info-bg);
+    color: var(--info-text);
+    margin-left: 0.35rem;
+    vertical-align: middle;
+}
+
+.status-active {
+    background-color: var(--success-bg);
+    color: var(--success-text);
+}
+
+.status-inactive {
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+}
+
+.admin-actions-cell {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.admin-self-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.admin-actions-bar {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.admin-no-results {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .admin-table th,
+    .admin-table td {
+        padding: 0.5rem 0.4rem;
+        font-size: 0.8rem;
+    }
+
+    .admin-actions-cell {
+        flex-direction: column;
+    }
+}
+
 .feedback-list {
     display: flex;
     flex-direction: column;

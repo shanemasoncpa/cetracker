@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ target_user.username }}'s Records - CE Logbook Admin{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>{{ target_user.username }}'s CE Records</h1>
+        <div class="admin-stats">
+            <div class="admin-stat">
+                <div class="admin-stat-label">Records</div>
+                <div class="admin-stat-value">{{ ce_records|length }}</div>
+            </div>
+            <div class="admin-stat">
+                <div class="admin-stat-label">Total Hours</div>
+                <div class="admin-stat-value">{{ "%.1f"|format(total_hours) }}</div>
+            </div>
+            <div class="admin-stat">
+                <div class="admin-stat-label">Designations</div>
+                <div class="admin-stat-value">{{ designations|length }}</div>
+            </div>
+            <div class="admin-stat">
+                <div class="admin-stat-label">Status</div>
+                <div class="admin-stat-value">
+                    {% if target_user.is_active %}
+                    <span class="status-badge status-active">Active</span>
+                    {% else %}
+                    <span class="status-badge status-inactive">Inactive</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p style="margin-bottom: 1rem;">
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-secondary btn-sm">&larr; Back to Admin Dashboard</a>
+    </p>
+
+    {% if designations %}
+    <div class="admin-section">
+        <h2>Designations</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            {% for d in designations %}
+            <span class="status-badge status-active">{{ d.designation }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if ce_records %}
+    <div class="admin-section">
+        <h2>CE Records</h2>
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Title</th>
+                        <th>Provider</th>
+                        <th>Category</th>
+                        <th>Hours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in ce_records %}
+                    <tr>
+                        <td>{{ record.date_completed.strftime('%b %d, %Y') }}</td>
+                        <td>{{ record.title }}</td>
+                        <td>{{ record.provider or '-' }}</td>
+                        <td>{{ record.category or '-' }}</td>
+                        <td>{{ record.hours }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>This user has no CE records.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

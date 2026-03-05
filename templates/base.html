@@ -12,13 +12,13 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CE Tracker{% endblock %}</title>
+    <title>{% block title %}CE Logbook{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="{{ url_for('ce_records.dashboard') }}" class="nav-brand">CE Tracker</a>
+            <a href="{{ url_for('ce_records.dashboard') }}" class="nav-brand">CE Logbook</a>
             <div class="nav-links">
                 {% if session.user_id %}
                     <span class="nav-user">Welcome, {{ session.username }}!</span>
@@ -56,8 +56,8 @@
     </main>
 
     <footer class="footer">
-        <p>&copy; <span id="footerYear"></span> CE Tracker</p>
-        <p class="footer-disclaimer">CE Tracker is a personal record-keeping tool only. It is not affiliated with the CFP Board, AICPA, CFA Institute, IRS, or any regulatory body. CE requirement calculations may not reflect current rules — always verify your compliance directly with your credentialing organization. This tool does not constitute professional advice. <a href="/disclaimer">Full Disclaimer</a></p>
+        <p>&copy; <span id="footerYear"></span> CE Logbook</p>
+        <p class="footer-disclaimer">CE Logbook is a personal record-keeping tool only. It is not affiliated with the CFP Board, AICPA, CFA Institute, IRS, or any regulatory body. CE requirement calculations may not reflect current rules — always verify your compliance directly with your credentialing organization. This tool does not constitute professional advice. <a href="/disclaimer">Full Disclaimer</a></p>
         <script>document.getElementById('footerYear').textContent = new Date().getFullYear();</script>
     </footer>
 
@@ -78,7 +78,7 @@
             </div>
             <form method="POST" action="{{ url_for('profile.submit_feedback') }}" class="ce-form" id="feedbackForm">
                 <div class="modal-body">
-                    <p class="feedback-intro">We'd love to hear from you! Let us know what's working, what isn't, or any ideas you have to make CE Tracker better.</p>
+                    <p class="feedback-intro">We'd love to hear from you! Let us know what's working, what isn't, or any ideas you have to make CE Logbook better.</p>
                     
                     <div class="form-row">
                         <div class="form-group">

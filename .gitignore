@@ -53,3 +53,9 @@ instance/
 # Local dev scripts
 start-agents.ps1
 
+# Playwright MCP logs
+.playwright-mcp/
+
+# Screenshots (QA artifacts)
+screenshots/
+

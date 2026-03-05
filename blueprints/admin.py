@@ -5,7 +5,7 @@ from functools import wraps
 
 from sqlalchemy import func
 
-from models import db, User, CERecord, UserDesignation, Feedback
+from models import db, User, CERecord, UserDesignation, Feedback, AuditLog
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -29,6 +29,19 @@ def admin_required(f):
         flash('Unauthorized access.', 'error')
         return redirect(url_for('auth.login'))
     return decorated_function
+
+
+def log_admin_action(action: str, target_user_id: int = None, details: str = None):
+    """Record an admin action in the audit log."""
+    admin_id = session.get('user_id')
+    if admin_id:
+        entry = AuditLog(
+            admin_id=admin_id,
+            action=action,
+            target_user_id=target_user_id,
+            details=details
+        )
+        db.session.add(entry)
 
 
 @admin_bp.route('/feedback')
@@ -161,11 +174,97 @@ def toggle_admin(user_id):
         return redirect(url_for('admin.admin_dashboard'))
 
     target_user.is_admin = not target_user.is_admin
+    status = 'granted' if target_user.is_admin else 'revoked'
+    log_admin_action('toggle_admin', target_user_id=user_id,
+                     details=f'Admin access {status} for {target_user.username}')
     db.session.commit()
 
-    status = 'granted' if target_user.is_admin else 'revoked'
     flash(f'Admin access {status} for {target_user.username}.', 'success')
     return redirect(url_for('admin.admin_dashboard'))
+
+
+@admin_bp.route('/toggle_active/<int:user_id>', methods=['POST'])
+@admin_required
+def toggle_active(user_id):
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        flash('User not found.', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
+
+    # Prevent admin from deactivating themselves
+    if 'user_id' in session and target_user.id == session['user_id']:
+        flash('You cannot deactivate your own account.', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
+
+    target_user.is_active = not target_user.is_active
+    status = 'activated' if target_user.is_active else 'deactivated'
+    log_admin_action('toggle_active', target_user_id=user_id,
+                     details=f'Account {status} for {target_user.username}')
+    db.session.commit()
+
+    flash(f'Account {status} for {target_user.username}.', 'success')
+    return redirect(url_for('admin.admin_dashboard'))
+
+
+@admin_bp.route('/delete_user/<int:user_id>', methods=['POST'])
+@admin_required
+def delete_user(user_id):
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        flash('User not found.', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
+
+    # Prevent admin from deleting themselves
+    if 'user_id' in session and target_user.id == session['user_id']:
+        flash('You cannot delete your own account.', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
+
+    username = target_user.username
+    log_admin_action('delete_user', target_user_id=user_id,
+                     details=f'Deleted user {username} (id={user_id}) and all associated data')
+    # Cascade handles ce_records and designations via relationship config
+    # Manually delete feedback since it doesn't cascade from User
+    Feedback.query.filter_by(user_id=user_id).delete()
+    db.session.delete(target_user)
+    db.session.commit()
+
+    flash(f'User {username} and all associated data have been deleted.', 'success')
+    return redirect(url_for('admin.admin_dashboard'))
+
+
+@admin_bp.route('/send_reminders', methods=['POST'])
+@admin_required
+def send_reminders():
+    from deadline_checker import check_and_send_deadline_reminders
+    results = check_and_send_deadline_reminders()
+    total_sent = results['approaching_sent'] + results['overdue_sent']
+    log_admin_action('send_reminders',
+                     details=f"Checked {results['checked']} designations, sent {total_sent} reminders")
+    db.session.commit()
+    flash(
+        f"Reminder check complete: {results['checked']} designations checked, "
+        f"{total_sent} reminders sent ({results['approaching_sent']} approaching, "
+        f"{results['overdue_sent']} overdue), {results['skipped_cooldown']} skipped (cooldown), "
+        f"{results['skipped_complete']} already complete.",
+        'success' if results['errors'] == 0 else 'info'
+    )
+    return redirect(url_for('admin.admin_dashboard'))
+
+
+@admin_bp.route('/audit_log')
+@admin_required
+def audit_log():
+    logs = (
+        AuditLog.query
+        .order_by(AuditLog.timestamp.desc())
+        .limit(100)
+        .all()
+    )
+    # Resolve admin usernames (admin user may have been deleted, so handle gracefully)
+    for log_entry in logs:
+        admin = db.session.get(User, log_entry.admin_id)
+        log_entry.admin_username = admin.username if admin else f'(deleted user #{log_entry.admin_id})'
+    return render_template('admin_audit_log.html', logs=logs)
 
 
 @admin_bp.route('/user/<int:user_id>/records')

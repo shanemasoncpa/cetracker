@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Manage Designations - CE Tracker{% endblock %}
+{% block title %}Manage Designations - CE Logbook{% endblock %}
 
 {% block content %}
 <div class="form-container">
@@ -23,10 +23,20 @@
                     <form method="POST" action="{{ url_for('designations.manage_designations') }}" style="display: inline;">
                         <input type="hidden" name="action" value="remove">
                         <input type="hidden" name="designation_id" value="{{ user_designation.id }}">
-                        <button type="submit" class="btn btn-danger btn-sm" 
+                        <button type="submit" class="btn btn-danger btn-sm"
                                 onclick="return confirm('Are you sure you want to remove the {{ designation }} designation?');">
                             Remove
                         </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('designations.manage_designations') }}" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                        <input type="hidden" name="action" value="set_due_date">
+                        <input type="hidden" name="designation_id" value="{{ user_designation.id }}">
+                        <label style="font-size: 0.85rem; white-space: nowrap;">Due Date:</label>
+                        <input type="date" name="custom_period_end" value="{{ user_designation.custom_period_end.strftime('%Y-%m-%d') if user_designation.custom_period_end else '' }}" style="font-size: 0.85rem; padding: 0.2rem 0.4rem;">
+                        <button type="submit" class="btn btn-primary btn-sm">Set</button>
+                        {% if user_designation.custom_period_end %}
+                        <button type="submit" class="btn btn-secondary btn-sm" onclick="this.form.custom_period_end.value='';">Reset to Auto</button>
+                        {% endif %}
                     </form>
                 </div>
                 {% endfor %}

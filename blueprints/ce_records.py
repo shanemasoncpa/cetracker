@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, current_app, jsonify
 from datetime import datetime, timedelta, timezone
 import csv
 import io
@@ -10,7 +10,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
-from models import db, User, CERecord, UserDesignation
+from models import db, User, CERecord, UserDesignation, PendingCERecord
 from designation_helpers import calculate_designation_requirements, calculate_napfa_requirements
 
 ce_bp = Blueprint('ce_records', __name__)
@@ -38,6 +38,7 @@ def dashboard():
     napfa_requirements = calculate_napfa_requirements(user) if user.is_napfa_member else None
     show_napfa = session.get('show_napfa_tracking', user.is_napfa_member)
     designation_requirements = calculate_designation_requirements(user, user_designations)
+    pending_count = PendingCERecord.query.filter_by(user_id=user.id, status='pending').count()
 
     return render_template('dashboard.html', ce_records=ce_records, total_hours=total_hours,
                            categories=categories, filter_category=filter_category,
@@ -45,6 +46,7 @@ def dashboard():
                            napfa_requirements=napfa_requirements,
                            show_napfa=show_napfa,
                            designation_requirements=designation_requirements,
+                           pending_count=pending_count,
                            user=user)
 
 
@@ -164,6 +166,224 @@ def toggle_napfa_tracking():
         return redirect(url_for('auth.login'))
     session['show_napfa_tracking'] = not session.get('show_napfa_tracking', False)
     return redirect(url_for('ce_records.dashboard'))
+
+
+@ce_bp.route('/pending')
+def pending_records():
+    if 'user_id' not in session:
+        flash('Please log in to view pending records.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = db.session.get(User, session['user_id'])
+    records = PendingCERecord.query.filter_by(
+        user_id=user.id, status='pending'
+    ).order_by(PendingCERecord.created_at.desc()).all()
+
+    return render_template('pending_records.html', records=records, user=user)
+
+
+@ce_bp.route('/pending/<int:record_id>/approve', methods=['POST'])
+def approve_pending(record_id):
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    pending = db.get_or_404(PendingCERecord, record_id)
+    if pending.user_id != session['user_id']:
+        flash('You do not have permission to approve this record.', 'error')
+        return redirect(url_for('ce_records.pending_records'))
+
+    title = request.form.get('title', '').strip()
+    provider = request.form.get('provider', '').strip()
+    hours = request.form.get('hours', '').strip()
+    date_completed = request.form.get('date_completed', '').strip()
+    category = request.form.get('category', '').strip()
+    description = request.form.get('description', '').strip()
+
+    if not title or not hours or not date_completed:
+        flash('Title, hours, and date completed are required.', 'error')
+        return redirect(url_for('ce_records.pending_records'))
+
+    try:
+        hours = float(hours)
+        date_completed = datetime.strptime(date_completed, '%Y-%m-%d').date()
+    except ValueError:
+        flash('Invalid hours or date format.', 'error')
+        return redirect(url_for('ce_records.pending_records'))
+
+    ce_record = CERecord(
+        user_id=session['user_id'],
+        title=title,
+        provider=provider,
+        hours=hours,
+        date_completed=date_completed,
+        category=category,
+        description=description,
+    )
+    db.session.add(ce_record)
+
+    pending.status = 'approved'
+    pending.reviewed_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    flash('Pending record approved and added to your CE records!', 'success')
+    return redirect(url_for('ce_records.pending_records'))
+
+
+@ce_bp.route('/pending/<int:record_id>/reject', methods=['POST'])
+def reject_pending(record_id):
+    if 'user_id' not in session:
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+
+    pending = db.get_or_404(PendingCERecord, record_id)
+    if pending.user_id != session['user_id']:
+        flash('You do not have permission to reject this record.', 'error')
+        return redirect(url_for('ce_records.pending_records'))
+
+    pending.status = 'rejected'
+    pending.reviewed_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    flash('Pending record rejected.', 'info')
+    return redirect(url_for('ce_records.pending_records'))
+
+
+CE_CATEGORIES = [
+    'Financial Planning Process',
+    'Insurance & Risk Management',
+    'Investments',
+    'Income Tax Planning',
+    'Retirement Planning & Employee Benefits',
+    'Estate Planning',
+    'Ethics',
+    'Accounting, Cash Flow Management, & Budgeting',
+    'Economic & Political Environment',
+    'Communications',
+    'Marketing and Practice Management',
+    'Strategic Thinking',
+    'Technology',
+    'Diversity, Equity & Inclusion (DEI)',
+]
+
+CE_EXTRACTION_PROMPT = """You are extracting Continuing Education (CE) course information from a certificate, completion document, or confirmation email.
+
+Analyze the document and extract the CE course details.
+
+Extract exactly these fields:
+- title: The course or program name
+- provider: The organization that provided the CE (e.g., CFP Board, AICPA, Kitces, etc.)
+- hours: The number of CE/CPE credit hours as a decimal number (e.g., 2.0)
+- date_completed: The completion date in YYYY-MM-DD format
+- category: The best matching category from this list:
+  {categories}
+- description: A brief description of the course content (1-2 sentences)
+- confidence: Your confidence in the extraction accuracy — "high" if all fields are clearly present, "medium" if some fields required inference, "low" if significant guessing was needed
+
+If a field cannot be determined, use null."""
+
+
+@ce_bp.route('/extract_pdf', methods=['POST'])
+def extract_pdf():
+    """Extract CE data from an uploaded PDF or image using Claude vision."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Please log in.'}), 401
+
+    import os
+    import base64
+
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'AI extraction is not configured. Please set ANTHROPIC_API_KEY.'}), 503
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided.'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected.'}), 400
+
+    filename = file.filename.lower()
+    if filename.endswith('.pdf'):
+        media_type = 'application/pdf'
+        content_type = 'document'
+    elif filename.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+        ext_map = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp'}
+        ext = '.' + filename.rsplit('.', 1)[-1]
+        media_type = ext_map.get(ext, 'image/png')
+        content_type = 'image'
+    else:
+        return jsonify({'error': 'File must be a PDF or image (PNG, JPG, WEBP).'}), 400
+
+    file_bytes = file.read()
+    if len(file_bytes) > 20 * 1024 * 1024:  # 20MB limit
+        return jsonify({'error': 'File is too large. Maximum size is 20MB.'}), 400
+
+    b64 = base64.b64encode(file_bytes).decode('utf-8')
+
+    categories_str = '\n  '.join(f'- {c}' for c in CE_CATEGORIES)
+    prompt = CE_EXTRACTION_PROMPT.format(categories=categories_str)
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+
+        if content_type == 'document':
+            file_block = {
+                'type': 'document',
+                'source': {
+                    'type': 'base64',
+                    'media_type': media_type,
+                    'data': b64,
+                },
+            }
+        else:
+            file_block = {
+                'type': 'image',
+                'source': {
+                    'type': 'base64',
+                    'media_type': media_type,
+                    'data': b64,
+                },
+            }
+
+        response = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=2048,
+            messages=[{
+                'role': 'user',
+                'content': [
+                    file_block,
+                    {'type': 'text', 'text': prompt},
+                ],
+            }],
+        )
+
+        response_text = response.content[0].text.strip()
+
+        # Extract JSON from response (handle markdown code blocks)
+        if '```json' in response_text:
+            response_text = response_text.split('```json')[1].split('```')[0].strip()
+        elif '```' in response_text:
+            response_text = response_text.split('```')[1].split('```')[0].strip()
+
+        data = json.loads(response_text)
+
+        return jsonify({
+            'title': data.get('title'),
+            'provider': data.get('provider'),
+            'hours': data.get('hours'),
+            'date_completed': data.get('date_completed'),
+            'category': data.get('category'),
+            'description': data.get('description'),
+            'confidence': data.get('confidence', 'low'),
+        })
+
+    except json.JSONDecodeError as e:
+        return jsonify({'error': f'Failed to parse AI response: {e}'}), 500
+    except Exception as e:
+        print(f"[EXTRACT] Claude API error: {e}")
+        return jsonify({'error': f'AI extraction failed: {e}'}), 500
 
 
 def _parse_csv_rows(content):
@@ -498,6 +718,7 @@ def export_backup():
                 'designation': d.designation,
                 'birth_month': d.birth_month,
                 'state': d.state,
+                'custom_period_end': d.custom_period_end.isoformat() if d.custom_period_end else None,
             }
             for d in designations
         ],

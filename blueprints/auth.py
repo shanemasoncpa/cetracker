@@ -5,6 +5,8 @@ import uuid
 
 from models import db, User, UserDesignation
 from designation_helpers import DESIGNATION_REQUIREMENTS, ALLOWED_DESIGNATIONS
+from email_helper import send_email
+from email_templates import password_reset_email, welcome_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -119,6 +121,15 @@ def register():
                 db.session.add(ud)
 
         db.session.commit()
+
+        # Send welcome email (don't block registration if it fails)
+        login_url = request.host_url.rstrip('/') + url_for('auth.login')
+        send_email(
+            to_email=email,
+            subject='Welcome to CE Logbook!',
+            html_content=welcome_email(username, login_url)
+        )
+
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('auth.login'))
 
@@ -142,6 +153,10 @@ def login():
             user = User.query.filter_by(username=username).first()
             if not user:
                 flash('User not found. Please check your username or register for a new account.', 'error')
+                return render_template('login.html')
+
+            if not user.is_active:
+                flash('This account has been deactivated. Contact an administrator.', 'error')
                 return render_template('login.html')
 
             if check_password_hash(user.password_hash, password):
@@ -185,10 +200,21 @@ def forgot_password():
             user.reset_token = token
             user.reset_token_expiry = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
             db.session.commit()
-            return redirect(url_for('auth.reset_password', token=token))
 
-        flash('If an account with that email exists, a reset link has been generated.', 'info')
-        return render_template('forgot_password.html')
+            reset_url = request.host_url.rstrip('/') + url_for('auth.reset_password', token=token)
+            email_sent = send_email(
+                to_email=user.email,
+                subject='CE Logbook — Reset Your Password',
+                html_content=password_reset_email(user.username, reset_url)
+            )
+
+            if not email_sent:
+                # Dev/test fallback: redirect directly to reset page
+                return redirect(url_for('auth.reset_password', token=token))
+
+        # Always show the same message whether user exists or not (security best practice)
+        flash('If an account with that email exists, a password reset link has been sent.', 'info')
+        return redirect(url_for('auth.login'))
 
     return render_template('forgot_password.html')
 

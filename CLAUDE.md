@@ -95,15 +95,21 @@ NEEDS NEXT: [what should happen next, or "Nothing — ready for review"]
 - Manage designations page (add/remove)
 - Feedback system (submit + admin view with is_admin role)
 - Dark mode toggle with localStorage persistence
-- Blueprint-based architecture (5 blueprints)
-- 91 passing pytest tests (0 warnings)
+- Legal disclaimer page + footer disclaimer + registration acknowledgment checkbox
+- SendGrid email integration (password reset, welcome email, deadline reminders)
+- Admin dashboard with user management (search, deactivation, deletion, toggle admin)
+- Admin audit log (tracks all admin actions with timestamps)
+- CE deadline reminder system (60-day approaching + overdue alerts, 7-day cooldown)
+- Blueprint-based architecture (6 blueprints: auth, ce_records, admin, designations, profile, legal)
+- 108 passing pytest tests (0 warnings)
 - Mobile-responsive design
 - JSON backup export/import
 - Deployed on Railway with PostgreSQL (persistent DB)
 
 ### Known Issues
-1. **No email notifications** — Password reset generates a token but doesn't email it (user must use the direct link)
-2. **Certificate upload removed** — Removed due to Render's ephemeral filesystem. Now on Railway with persistent storage — could re-add if needed (BYTEA or S3).
+1. **SendGrid not yet configured in prod** — SENDGRID_API_KEY and FROM_EMAIL env vars need to be set in Railway for emails to send. App works without them (graceful fallback).
+2. **Deadline reminders are manual** — Admin triggers via button. Could add Railway cron job for automation.
+3. **Certificate upload removed** — Removed due to Render's ephemeral filesystem. Now on Railway with persistent storage — could re-add if needed (BYTEA or S3).
 
 ### Recently Removed
 - **Certificate PDF upload/download** — Fully removed from backend and frontend (models.py, ce_records.py, app.py, dashboard.html, add_ce.html).
@@ -136,21 +142,24 @@ Update this section as tasks are assigned and completed. Use status: TODO, IN PR
 | 26 | Migrate from Render to Railway with persistent PostgreSQL | DONE |
 | 27 | Update CLAUDE.md to reflect Railway deployment + current state | DONE |
 
-### Current Sprint — ACTIVE TASKS
+### Previous Sprint (Tasks 28-39) — ALL DONE
+Dark mode fixes, UI cleanup, disclaimer system, registration checkbox. 91 tests passing.
+
+### Previous Sprint (Tasks 40-47) — ALL DONE
+Email infrastructure (SendGrid), admin dashboard, user management, audit log, deadline reminders. 108 tests passing.
+
+### Current Sprint — Email-to-CE Ingestion Pipeline
 | # | Task | Type | Agent | Status | Notes |
 |---|------|------|-------|--------|-------|
-| 28 | Fix SQLAlchemy Query.get() deprecation warnings | FIX | Backend+QA | DONE | 9 fixes total, 0 warnings remaining |
-| 29 | Add test coverage for export/import backup endpoints | IMPLEMENT | QA | DONE | 9 new tests, 90 total passing |
-| 30 | Remove legacy render.yaml from repo | REMOVE | Manager | DONE | Committed bc034c9 |
-| 31 | Audit UI/UX across all templates and CSS | INVESTIGATE | Frontend | DONE | 17 issues found, prioritized HIGH/MED/LOW |
-| 32 | Fix dark mode color bugs (flash messages, selects, upload areas, badges) | FIX | Frontend | DONE | 14 CSS vars added, all hardcoded colors replaced with vars |
-| 33 | Fix window.onclick overwrite + add Escape key to dashboard modals | FIX | Frontend | DONE | addEventListener instead of assignment, Escape key closes all modals |
-| 34 | Fix duplicate toggleCfpBirthMonth(), undefined --text-color, duplicate .empty-state | FIX | Frontend | DONE | Removed dup function, fixed 2 var refs, removed dup CSS rule |
-| 35 | Add description tooltip/expand + dynamic footer year | FIX | Frontend | DONE | Click-to-expand for long descriptions, dynamic footer year |
-| 36 | Verify dark mode fixes with Playwright | INVESTIGATE | QA | DONE | 19 screenshots, all 8 pages pass in light+dark, zero real issues found |
-| 37 | Create /disclaimer route + full disclaimer template | IMPLEMENT | Backend+Frontend | DONE | blueprints/legal.py + disclaimer.html + styled CSS |
-| 38 | Update footer in base.html with short disclaimer + link | IMPLEMENT | Frontend | DONE | 4-sentence disclaimer + Full Disclaimer link + .footer-disclaimer CSS |
-| 39 | Add acknowledgment checkbox to registration form | IMPLEMENT | Backend+Frontend+QA | DONE | Checkbox + server validation + 4 test updates, 91 tests passing |
+| 48 | Add PendingCERecord model + schema migration | IMPLEMENT | Backend | TODO | New model for pending email-submitted CE records |
+| 49 | Create pdf_extractor.py (pdfplumber + Claude API) | IMPLEMENT | Backend | TODO | PDF text extraction + AI structured data extraction |
+| 50 | Create blueprints/inbound.py webhook endpoint | IMPLEMENT | Backend | TODO | SendGrid Inbound Parse POST handler, depends on #48+#49 |
+| 51 | Add pending record email notification template | IMPLEMENT | Backend | TODO | pending_record_email() in email_templates.py |
+| 52 | Add pending record review/approve/reject routes | IMPLEMENT | Backend | TODO | GET /pending, POST approve/reject in ce_records.py, depends on #48 |
+| 53 | Create pending_records.html review page | IMPLEMENT | Frontend | TODO | Editable fields, approve/reject, confidence badges, depends on #52 |
+| 54 | Add pending records banner to dashboard | IMPLEMENT | Frontend | TODO | Notification banner when pending_count > 0, depends on #52 |
+| 55 | Add email forwarding instructions to profile page | IMPLEMENT | Frontend | TODO | Show forwarding address + how-to |
+| 56 | Test coverage for email ingestion pipeline | IMPLEMENT | QA | TODO | Mock pdfplumber, Claude API, webhook auth, approve/reject |
 
 ## Conventions
 - **Python**: Follow PEP 8, use type hints for new functions

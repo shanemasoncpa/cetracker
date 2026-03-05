@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Feedback Dashboard - CE Tracker Admin{% endblock %}
+{% block title %}Feedback Dashboard - CE Logbook Admin{% endblock %}
 
 {% block content %}
 <div class="admin-container">
@@ -78,7 +78,7 @@
                         {% if feedback.is_read %}Mark Unread{% else %}Mark Read{% endif %}
                     </button>
                 </form>
-                <a href="mailto:{{ feedback.email }}?subject=RE: Your CE Tracker Feedback" class="btn btn-primary btn-sm">
+                <a href="mailto:{{ feedback.email }}?subject=RE: Your CE Logbook Feedback" class="btn btn-primary btn-sm">
                     Reply
                 </a>
                 <form method="POST" action="{{ url_for('admin.delete_feedback', feedback_id=feedback.id, key=admin_key) }}" 

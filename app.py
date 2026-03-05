@@ -2,7 +2,7 @@ from flask import Flask
 from sqlalchemy import text
 import os
 
-from models import db, User, CERecord, UserDesignation, Feedback
+from models import db, User, CERecord, UserDesignation, Feedback, AuditLog, PendingCERecord
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -27,6 +27,7 @@ from blueprints.admin import admin_bp
 from blueprints.designations import designations_bp
 from blueprints.profile import profile_bp
 from blueprints.legal import legal_bp
+from blueprints.inbound import inbound_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(ce_bp)
@@ -34,6 +35,7 @@ app.register_blueprint(admin_bp)
 app.register_blueprint(designations_bp)
 app.register_blueprint(profile_bp)
 app.register_blueprint(legal_bp)
+app.register_blueprint(inbound_bp)
 
 
 def update_database_schema():
@@ -68,6 +70,9 @@ def update_database_schema():
             ('ce_record', 'is_ethics_course', f'BOOLEAN DEFAULT {boolean_default} NOT NULL'),
             ('ce_record', 'napfa_subject_area', 'VARCHAR(100)'),
             ('feedback', 'is_read', f'BOOLEAN DEFAULT {boolean_default} NOT NULL'),
+            ('users', 'is_active', f'BOOLEAN DEFAULT TRUE NOT NULL' if is_postgresql else f'BOOLEAN DEFAULT 1 NOT NULL'),
+            ('user_designation', 'last_reminder_sent', 'TIMESTAMP' if is_postgresql else 'DATETIME'),
+            ('user_designation', 'custom_period_end', 'DATE'),
         ]
 
         for table, column, col_type in columns_to_add:

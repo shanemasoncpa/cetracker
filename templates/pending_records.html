@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Records - CE Logbook{% endblock %}
+
+{% block content %}
+<style>
+    @media (max-width: 600px) {
+        .pending-form-row {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+<div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <h1 style="color: var(--text-primary); margin-bottom: 6px;">Pending Records</h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">
+                These records were extracted from emails you forwarded. Review the details, make any corrections, then approve or reject each one.
+            </p>
+        </div>
+        <a href="{{ url_for('ce_records.dashboard') }}" class="btn btn-secondary" style="white-space: nowrap;">Back to Dashboard</a>
+    </div>
+
+    {% if not records %}
+    <div style="background: var(--card-bg); border-radius: 12px; padding: 48px 24px; text-align: center; box-shadow: var(--shadow); border: 1px solid var(--border-color);">
+        <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 16px;">No pending records to review.</p>
+        <a href="{{ url_for('ce_records.dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+    </div>
+    {% else %}
+
+    <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
+        {{ records|length }} pending record{{ 's' if records|length != 1 else '' }} to review
+    </p>
+
+    {% for record in records %}
+    <div style="background: var(--card-bg); border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); border: 1px solid var(--border-color);">
+
+        <!-- Source info & confidence badge -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                {% if record.source_email_subject %}
+                <div><strong>Subject:</strong> {{ record.source_email_subject }}</div>
+                {% endif %}
+                {% if record.source_email_from %}
+                <div><strong>From:</strong> {{ record.source_email_from }}</div>
+                {% endif %}
+                {% if record.source_filename %}
+                <div><strong>File:</strong> {{ record.source_filename }}</div>
+                {% endif %}
+            </div>
+            <div>
+                {% if record.extraction_confidence == 'high' %}
+                <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: var(--success-bg); color: var(--success-text);">High Confidence</span>
+                {% elif record.extraction_confidence == 'medium' %}
+                <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: var(--warning-bg); color: var(--warning-text);">Medium Confidence</span>
+                {% elif record.extraction_confidence == 'low' %}
+                <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: var(--danger-bg); color: var(--danger-text);">Low Confidence</span>
+                {% else %}
+                <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: var(--badge-other-bg); color: var(--badge-other-text);">Manual Entry</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Error message -->
+        {% if record.error_message %}
+        <div style="background: var(--warning-bg); color: var(--warning-text); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; border-left: 4px solid var(--warning-color);">
+            <strong>Extraction Note:</strong> {{ record.error_message }}
+        </div>
+        {% endif %}
+
+        <!-- Editable form -->
+        <form method="POST" action="/pending/{{ record.id }}/approve" class="ce-form">
+            <div class="form-group">
+                <label for="title_{{ record.id }}">Title *</label>
+                <input type="text" id="title_{{ record.id }}" name="title" value="{{ record.title or '' }}" required placeholder="e.g., Advanced Tax Planning Seminar">
+            </div>
+
+            <div class="pending-form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label for="provider_{{ record.id }}">Provider</label>
+                    <input type="text" id="provider_{{ record.id }}" name="provider" value="{{ record.provider or '' }}" placeholder="e.g., AICPA">
+                </div>
+
+                <div class="form-group">
+                    <label for="hours_{{ record.id }}">Hours *</label>
+                    <input type="number" id="hours_{{ record.id }}" name="hours" value="{{ record.hours or '' }}" required step="0.5" min="0" placeholder="e.g., 2, 2.5, 3">
+                </div>
+            </div>
+
+            <div class="pending-form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label for="date_completed_{{ record.id }}">Date Completed *</label>
+                    <input type="date" id="date_completed_{{ record.id }}" name="date_completed" value="{{ record.date_completed.strftime('%Y-%m-%d') if record.date_completed else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="category_{{ record.id }}">Category</label>
+                    <select id="category_{{ record.id }}" name="category">
+                        <option value="">Select a category...</option>
+                        <option value="Financial Planning Process" {% if record.category == 'Financial Planning Process' %}selected{% endif %}>Financial Planning Process</option>
+                        <option value="Insurance & Risk Management" {% if record.category == 'Insurance & Risk Management' %}selected{% endif %}>Insurance & Risk Management</option>
+                        <option value="Investments" {% if record.category == 'Investments' %}selected{% endif %}>Investments</option>
+                        <option value="Income Tax Planning" {% if record.category == 'Income Tax Planning' %}selected{% endif %}>Income Tax Planning</option>
+                        <option value="Retirement Planning & Employee Benefits" {% if record.category == 'Retirement Planning & Employee Benefits' %}selected{% endif %}>Retirement Planning & Employee Benefits</option>
+                        <option value="Estate Planning" {% if record.category == 'Estate Planning' %}selected{% endif %}>Estate Planning</option>
+                        <option value="Ethics" {% if record.category == 'Ethics' %}selected{% endif %}>Ethics</option>
+                        <option value="Accounting, Cash Flow Management, & Budgeting" {% if record.category == 'Accounting, Cash Flow Management, & Budgeting' %}selected{% endif %}>Accounting, Cash Flow Management, & Budgeting</option>
+                        <option value="Economic & Political Environment" {% if record.category == 'Economic & Political Environment' %}selected{% endif %}>Economic & Political Environment</option>
+                        <option value="Communications" {% if record.category == 'Communications' %}selected{% endif %}>Communications</option>
+                        <option value="Marketing and Practice Management" {% if record.category == 'Marketing and Practice Management' %}selected{% endif %}>Marketing and Practice Management</option>
+                        <option value="Strategic Thinking" {% if record.category == 'Strategic Thinking' %}selected{% endif %}>Strategic Thinking</option>
+                        <option value="Technology" {% if record.category == 'Technology' %}selected{% endif %}>Technology</option>
+                        <option value="Diversity, Equity & Inclusion (DEI)" {% if record.category == 'Diversity, Equity & Inclusion (DEI)' %}selected{% endif %}>Diversity, Equity & Inclusion (DEI)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description_{{ record.id }}">Description</label>
+                <textarea id="description_{{ record.id }}" name="description" rows="3" placeholder="Optional description of the CE activity">{{ record.description or '' }}</textarea>
+            </div>
+
+            <!-- Approve button -->
+            <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border-color);">
+                <button type="button" class="btn btn-danger" onclick="if(confirm('Reject this record? It will be permanently removed.')) document.getElementById('reject-form-{{ record.id }}').submit();">Reject</button>
+                <button type="submit" class="btn btn-primary">Approve & Add</button>
+            </div>
+        </form>
+
+        <!-- Reject form (outside approve form to avoid nesting) -->
+        <form id="reject-form-{{ record.id }}" method="POST" action="/pending/{{ record.id }}/reject" style="display: none;"></form>
+
+    </div>
+    {% endfor %}
+
+    {% endif %}
+
+</div>
+{% endblock %}

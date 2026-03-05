@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - CE Tracker{% endblock %}
+{% block title %}Dashboard - CE Logbook{% endblock %}
 
 {% block content %}
 <div class="dashboard-container">
@@ -11,6 +11,7 @@
             <div class="dropdown">
                 <button type="button" class="btn btn-secondary dropdown-toggle" onclick="toggleDropdown(this)">Data Tools &#9662;</button>
                 <div class="dropdown-menu">
+                    <button type="button" class="dropdown-item" onclick="openExtractModal()">🤖 AI Extract from PDF</button>
                     <button type="button" class="dropdown-item" onclick="openImportModal()">📤 Import CSV</button>
                     <a href="{{ url_for('ce_records.export_ce', category=filter_category) }}" class="dropdown-item">📥 Export CSV</a>
                     <a href="{{ url_for('ce_records.export_pdf', category=filter_category) }}" class="dropdown-item">📄 Export PDF</a>
@@ -20,6 +21,15 @@
             </div>
         </div>
     </div>
+
+    {% if pending_count is defined and pending_count > 0 %}
+    <div style="background-color: var(--primary-color, #2563eb); color: #fff; padding: 0.75rem 1.25rem; border-radius: 0.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+        <span style="font-size: 0.95rem;">
+            You have <strong>{{ pending_count }}</strong> pending CE record{{ 's' if pending_count != 1 else '' }} to review.
+        </span>
+        <a href="{{ url_for('ce_records.pending_records') }}" style="background-color: #fff; color: var(--primary-color, #2563eb); padding: 0.4rem 1rem; border-radius: 0.375rem; text-decoration: none; font-weight: 600; font-size: 0.875rem;">Review Now</a>
+    </div>
+    {% endif %}
 
     {% if user_designations %}
     <div class="designations-section">
@@ -56,7 +66,7 @@
                 </div>
                 
                 <div class="requirement-period">
-                    <small>Reporting Period: {{ req.period_start.strftime('%b %d, %Y') }} - {{ req.period_end.strftime('%b %d, %Y') }}</small>
+                    <small>Reporting Period: {{ req.period_start.strftime('%b %d, %Y') }} - {{ req.period_end.strftime('%b %d, %Y') }}{% if req.is_custom_period %} <span style="color: var(--primary-color, #2563eb); font-weight: 600;">(custom)</span>{% endif %}</small>
                 </div>
                 
                 <div class="requirement-progress-main">
@@ -562,7 +572,7 @@
         </div>
         <form method="POST" action="{{ url_for('ce_records.import_backup') }}" enctype="multipart/form-data" id="restoreBackupForm">
             <div class="modal-body">
-                <p class="import-intro">Upload a JSON backup file previously exported from CE Tracker. Only CE records will be imported — duplicates are skipped automatically.</p>
+                <p class="import-intro">Upload a JSON backup file previously exported from CE Logbook. Only CE records will be imported — duplicates are skipped automatically.</p>
 
                 <div class="form-group">
                     <label for="backup_file">Select Backup File *</label>
@@ -592,6 +602,144 @@
     </div>
 </div>
 
+<!-- AI Extract Modal -->
+<div id="extractModal" class="modal">
+    <div class="modal-content import-modal">
+        <div class="modal-header">
+            <h2>AI Extract from PDF</h2>
+            <button type="button" class="modal-close" onclick="closeExtractModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Step 1: Upload -->
+            <div id="extract-upload-step">
+                <p class="import-intro">Upload a CE certificate or completion document. AI will extract the course details automatically.</p>
+
+                <div class="form-group">
+                    <div class="file-upload-area" id="extract-file-upload-area">
+                        <input type="file" id="extract_file" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display: none;">
+                        <div class="file-upload-content">
+                            <svg class="file-upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="file-upload-text">Drag and drop your certificate here, or <span class="file-upload-link">click to browse</span></p>
+                            <p class="file-upload-hint">PDF, PNG, JPG, or WEBP (max 20MB)</p>
+                        </div>
+                        <div class="file-upload-preview" id="extract-file-preview" style="display: none;">
+                            <span class="file-name" id="extract-file-name"></span>
+                            <button type="button" class="file-remove" id="extract-file-remove">&times;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="extract-error" style="display:none; color: var(--error-color, #dc2626); background: var(--error-bg, #fef2f2); padding: 0.75rem 1rem; border-radius: 0.5rem; margin-top: 0.75rem; font-size: 0.9rem;"></div>
+            </div>
+
+            <!-- Step 2: Loading -->
+            <div id="extract-loading-step" style="display:none; text-align:center; padding: 3rem 1rem;">
+                <div style="display:inline-block; width:48px; height:48px; border:4px solid var(--border-color, #e5e7eb); border-top-color: var(--primary-color, #2563eb); border-radius:50%; animation: spin 0.8s linear infinite;"></div>
+                <p style="margin-top:1rem; color: var(--text-secondary, #6b7280); font-size: 0.95rem;">Analyzing your document with AI...</p>
+                <p style="color: var(--text-secondary, #6b7280); font-size: 0.85rem;">This usually takes 5-10 seconds.</p>
+            </div>
+
+            <!-- Step 3: Results (editable form) -->
+            <div id="extract-results-step" style="display:none;">
+                <div id="extract-confidence-badge" style="margin-bottom: 1rem; padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.85rem; font-weight: 600;"></div>
+
+                <form method="POST" action="{{ url_for('ce_records.add_ce') }}" class="ce-form" id="extractResultForm">
+                    <div class="form-group">
+                        <label for="extract_title">Title *</label>
+                        <input type="text" id="extract_title" name="title" required placeholder="Course title">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="extract_provider">Provider</label>
+                            <input type="text" id="extract_provider" name="provider" placeholder="e.g., AICPA">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="extract_category">Category</label>
+                            <input type="text" id="extract_category" name="category" placeholder="e.g., Taxation, Ethics">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="extract_hours">Hours *</label>
+                            <input type="number" id="extract_hours" name="hours" required step="0.5" min="0" placeholder="e.g., 2.5">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="extract_date_completed">Date Completed *</label>
+                            <input type="date" id="extract_date_completed" name="date_completed" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="extract_description">Description</label>
+                        <textarea id="extract_description" name="description" rows="3" placeholder="Optional description"></textarea>
+                    </div>
+
+                    {% if user.is_napfa_member %}
+                    <div class="form-group">
+                        <label for="extract_napfa_subject_area">NAPFA Subject Area</label>
+                        <select id="extract_napfa_subject_area" name="napfa_subject_area">
+                            <option value="">Select a subject area...</option>
+                            <option value="Financial Planning Process">Financial Planning Process</option>
+                            <option value="Insurance & Risk Management">Insurance & Risk Management</option>
+                            <option value="Investments">Investments</option>
+                            <option value="Income Tax Planning">Income Tax Planning</option>
+                            <option value="Retirement Planning & Employee Benefits">Retirement Planning & Employee Benefits</option>
+                            <option value="Estate Planning">Estate Planning</option>
+                            <option value="Ethics">Ethics</option>
+                            <option value="Accounting, Cash Flow Management, & Budgeting">Accounting, Cash Flow Management, & Budgeting</option>
+                            <option value="Economic & Political Environment">Economic & Political Environment</option>
+                            <option value="Communications">Communications</option>
+                            <option value="Marketing and Practice Management">Marketing and Practice Management</option>
+                            <option value="Strategic Thinking">Strategic Thinking</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Diversity, Equity & Inclusion (DEI)">Diversity, Equity & Inclusion (DEI)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="designation-label">
+                            <input type="checkbox" name="is_napfa_approved" id="extract_is_napfa_approved">
+                            <span>NAPFA-Approved Source</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="designation-label">
+                            <input type="checkbox" name="is_ethics_course" id="extract_is_ethics_course">
+                            <span>2-CE Ethics Course</span>
+                        </label>
+                    </div>
+                    {% endif %}
+
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Add to Records</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetExtractModal()">Extract Another</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeExtractModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Footer only shown during upload step -->
+        <div class="modal-footer" id="extract-upload-footer">
+            <button type="button" class="btn btn-primary" id="extract-submit-btn" disabled onclick="submitExtraction()">Extract with AI</button>
+            <button type="button" class="btn btn-secondary" onclick="closeExtractModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
 <script>
     // Dropdown toggle
     function toggleDropdown(btn) {
@@ -614,6 +762,188 @@
             });
         }
     });
+
+    // ==========================================
+    // AI Extract Modal Functions
+    // ==========================================
+    var extractFile = null;
+
+    function openExtractModal() {
+        document.getElementById('extractModal').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeExtractModal() {
+        document.getElementById('extractModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+        resetExtractModal();
+    }
+
+    function resetExtractModal() {
+        extractFile = null;
+        document.getElementById('extract_file').value = '';
+        document.getElementById('extract-file-preview').style.display = 'none';
+        document.querySelector('#extract-file-upload-area .file-upload-content').style.display = 'block';
+        document.getElementById('extract-submit-btn').disabled = true;
+        document.getElementById('extract-error').style.display = 'none';
+        document.getElementById('extract-upload-step').style.display = 'block';
+        document.getElementById('extract-upload-footer').style.display = '';
+        document.getElementById('extract-loading-step').style.display = 'none';
+        document.getElementById('extract-results-step').style.display = 'none';
+        var form = document.getElementById('extractResultForm');
+        if (form) form.reset();
+    }
+
+    function submitExtraction() {
+        if (!extractFile) return;
+
+        var allowedExts = ['.pdf', '.png', '.jpg', '.jpeg', '.webp'];
+        var fname = extractFile.name.toLowerCase();
+        var valid = allowedExts.some(function(ext) { return fname.endsWith(ext); });
+        if (!valid) {
+            showExtractError('Please upload a PDF or image file (PNG, JPG, WEBP).');
+            return;
+        }
+
+        if (extractFile.size > 20 * 1024 * 1024) {
+            showExtractError('File is too large. Maximum size is 20MB.');
+            return;
+        }
+
+        // Show loading
+        document.getElementById('extract-upload-step').style.display = 'none';
+        document.getElementById('extract-upload-footer').style.display = 'none';
+        document.getElementById('extract-loading-step').style.display = 'block';
+        document.getElementById('extract-error').style.display = 'none';
+
+        var formData = new FormData();
+        formData.append('file', extractFile);
+
+        fetch('{{ url_for("ce_records.extract_pdf") }}', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(function(resp) {
+            return resp.json().then(function(data) {
+                return { ok: resp.ok, data: data };
+            });
+        })
+        .then(function(result) {
+            document.getElementById('extract-loading-step').style.display = 'none';
+
+            if (!result.ok || result.data.error) {
+                // Back to upload step with error
+                document.getElementById('extract-upload-step').style.display = 'block';
+                document.getElementById('extract-upload-footer').style.display = '';
+                showExtractError(result.data.error || 'Extraction failed. Please try again.');
+                return;
+            }
+
+            // Populate results form
+            var d = result.data;
+            document.getElementById('extract_title').value = d.title || '';
+            document.getElementById('extract_provider').value = d.provider || '';
+            document.getElementById('extract_category').value = d.category || '';
+            document.getElementById('extract_hours').value = d.hours || '';
+            document.getElementById('extract_date_completed').value = d.date_completed || '';
+            document.getElementById('extract_description').value = d.description || '';
+
+            // Confidence badge
+            var badge = document.getElementById('extract-confidence-badge');
+            var conf = (d.confidence || 'low').toLowerCase();
+            if (conf === 'high') {
+                badge.textContent = 'High Confidence — fields look good';
+                badge.style.backgroundColor = 'var(--success-bg, #f0fdf4)';
+                badge.style.color = 'var(--success-color, #16a34a)';
+                badge.style.border = '1px solid var(--success-color, #16a34a)';
+            } else if (conf === 'medium') {
+                badge.textContent = 'Medium Confidence — please review';
+                badge.style.backgroundColor = 'var(--warning-bg, #fffbeb)';
+                badge.style.color = 'var(--warning-color, #d97706)';
+                badge.style.border = '1px solid var(--warning-color, #d97706)';
+            } else {
+                badge.textContent = 'Low Confidence — please verify all fields';
+                badge.style.backgroundColor = 'var(--error-bg, #fef2f2)';
+                badge.style.color = 'var(--error-color, #dc2626)';
+                badge.style.border = '1px solid var(--error-color, #dc2626)';
+            }
+
+            document.getElementById('extract-results-step').style.display = 'block';
+        })
+        .catch(function(err) {
+            document.getElementById('extract-loading-step').style.display = 'none';
+            document.getElementById('extract-upload-step').style.display = 'block';
+            document.getElementById('extract-upload-footer').style.display = '';
+            showExtractError('Network error. Please try again.');
+        });
+    }
+
+    function showExtractError(msg) {
+        var el = document.getElementById('extract-error');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    // Extract file upload handling
+    (function() {
+        var fileInput = document.getElementById('extract_file');
+        var uploadArea = document.getElementById('extract-file-upload-area');
+        var filePreview = document.getElementById('extract-file-preview');
+        var fileName = document.getElementById('extract-file-name');
+        var fileRemove = document.getElementById('extract-file-remove');
+        var uploadContent = uploadArea.querySelector('.file-upload-content');
+        var submitBtn = document.getElementById('extract-submit-btn');
+
+        function setFile(file) {
+            var allowedExts = ['.pdf', '.png', '.jpg', '.jpeg', '.webp'];
+            var fname = file.name.toLowerCase();
+            var valid = allowedExts.some(function(ext) { return fname.endsWith(ext); });
+            if (!valid) {
+                alert('Please select a PDF or image file (PNG, JPG, WEBP).');
+                return;
+            }
+            extractFile = file;
+            fileName.textContent = file.name;
+            uploadContent.style.display = 'none';
+            filePreview.style.display = 'flex';
+            submitBtn.disabled = false;
+            document.getElementById('extract-error').style.display = 'none';
+        }
+
+        uploadArea.addEventListener('click', function(e) {
+            if (e.target === uploadArea || e.target.closest('.file-upload-content')) {
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files[0]) setFile(e.target.files[0]);
+        });
+
+        fileRemove.addEventListener('click', function(e) {
+            e.stopPropagation();
+            extractFile = null;
+            fileInput.value = '';
+            filePreview.style.display = 'none';
+            uploadContent.style.display = 'block';
+            submitBtn.disabled = true;
+        });
+
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+        });
+    })();
 
     // Import CSV Modal functions
     function openImportModal() {
@@ -785,6 +1115,7 @@
         var editModal = document.getElementById('editCEModal');
         var importModal = document.getElementById('importCSVModal');
         var restoreModal = document.getElementById('restoreBackupModal');
+        var extractModal = document.getElementById('extractModal');
         if (event.target === addModal) {
             closeAddCEModal();
         }
@@ -797,6 +1128,9 @@
         if (event.target === restoreModal) {
             closeRestoreModal();
         }
+        if (event.target === extractModal) {
+            closeExtractModal();
+        }
     });
 
     // Close modals with Escape key
@@ -806,6 +1140,7 @@
             var editModal = document.getElementById('editCEModal');
             var importModal = document.getElementById('importCSVModal');
             var restoreModal = document.getElementById('restoreBackupModal');
+            var extractModal = document.getElementById('extractModal');
             if (addModal && addModal.style.display === 'flex') {
                 closeAddCEModal();
             }
@@ -817,6 +1152,9 @@
             }
             if (restoreModal && restoreModal.style.display === 'flex') {
                 closeRestoreModal();
+            }
+            if (extractModal && extractModal.style.display === 'flex') {
+                closeExtractModal();
             }
         }
     });

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - CE Logbook{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>Admin Dashboard</h1>
+        <div class="admin-stats">
+            <div class="admin-stat">
+                <div class="admin-stat-label">Total Users</div>
+                <div class="admin-stat-value">{{ total_users }}</div>
+            </div>
+            <div class="admin-stat">
+                <div class="admin-stat-label">Total Records</div>
+                <div class="admin-stat-value">{{ total_records }}</div>
+            </div>
+            <div class="admin-stat">
+                <div class="admin-stat-label">Total Hours</div>
+                <div class="admin-stat-value">{{ "%.1f"|format(total_hours) }}</div>
+            </div>
+            <div class="admin-stat">
+                <div class="admin-stat-label">New (30d)</div>
+                <div class="admin-stat-value">{{ new_users_30d }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-actions-bar">
+        <a href="{{ url_for('admin.view_feedback') }}" class="btn btn-secondary">View Feedback</a>
+        <a href="{{ url_for('admin.audit_log') }}" class="btn btn-secondary">Audit Log</a>
+        <form method="POST" action="{{ url_for('admin.send_reminders') }}" style="display: inline;"
+              onsubmit="return confirm('Send deadline reminder emails to all users with approaching or overdue CE deadlines?');">
+            <button type="submit" class="btn btn-primary">Send Reminders</button>
+        </form>
+    </div>
+
+    {% if top_users %}
+    <div class="admin-section">
+        <h2>Top 5 Most Active Users</h2>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Username</th>
+                    <th>Records</th>
+                    <th>Hours</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in top_users %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.record_count }}</td>
+                    <td>{{ "%.1f"|format(user.total_hours) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="admin-section">
+        <h2>All Users</h2>
+        <div class="admin-search">
+            <input type="text" id="userSearch" placeholder="Search by username or email..." oninput="filterUsers()">
+        </div>
+        <div class="admin-table-wrapper">
+            <table class="admin-table" id="usersTable">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Designations</th>
+                        <th>Records</th>
+                        <th>Hours</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user, record_count, total_hours, designation_count in users_with_stats %}
+                    <tr data-username="{{ user.username|lower }}" data-email="{{ user.email|lower }}">
+                        <td>
+                            <a href="{{ url_for('admin.view_user_records', user_id=user.id) }}" class="admin-user-link">{{ user.username }}</a>
+                            {% if user.is_admin %}<span class="admin-badge">Admin</span>{% endif %}
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="status-badge status-active">Active</span>
+                            {% else %}
+                            <span class="status-badge status-inactive">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ designation_count }}</td>
+                        <td>{{ record_count }}</td>
+                        <td>{{ "%.1f"|format(total_hours) }}</td>
+                        <td>{{ user.created_at.strftime('%b %d, %Y') }}</td>
+                        <td class="admin-actions-cell">
+                            {% if session.user_id != user.id %}
+                            <form method="POST" action="{{ url_for('admin.toggle_active', user_id=user.id) }}" style="display: inline;"
+                                  onsubmit="return confirm('{{ "Activate" if not user.is_active else "Deactivate" }} user {{ user.username }}?');">
+                                <button type="submit" class="btn btn-sm {{ 'btn-secondary' if user.is_active else 'btn-primary' }}">
+                                    {{ "Activate" if not user.is_active else "Deactivate" }}
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" style="display: inline;"
+                                  onsubmit="return confirm('{{ "Revoke" if user.is_admin else "Grant" }} admin access for {{ user.username }}?');">
+                                <button type="submit" class="btn btn-sm btn-secondary">
+                                    {{ "Revoke Admin" if user.is_admin else "Make Admin" }}
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" style="display: inline;"
+                                  onsubmit="return confirm('Permanently delete {{ user.username }} and all their data? This cannot be undone.');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                            {% else %}
+                            <span class="admin-self-label">You</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="admin-no-results" id="noResults" style="display: none;">No users match your search.</p>
+    </div>
+</div>
+
+<script>
+function filterUsers() {
+    var query = document.getElementById('userSearch').value.toLowerCase().trim();
+    var rows = document.querySelectorAll('#usersTable tbody tr');
+    var visibleCount = 0;
+
+    rows.forEach(function(row) {
+        var username = row.getAttribute('data-username') || '';
+        var email = row.getAttribute('data-email') || '';
+        var match = !query || username.indexOf(query) !== -1 || email.indexOf(query) !== -1;
+        row.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+
+    document.getElementById('noResults').style.display = visibleCount === 0 ? 'block' : 'none';
+}
+</script>
+{% endblock %}

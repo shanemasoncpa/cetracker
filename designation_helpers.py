@@ -1,6 +1,26 @@
 """Designation CE requirement calculators."""
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from models import CERecord
+
+
+# Cycle lengths by designation (years)
+_CYCLE_LENGTHS = {
+    'CFP': 2, 'CEP': 2, 'ECA': 2, 'CLU': 2, 'ChFC': 2,
+    'CIMA': 2, 'CIMC': 2, 'CPWA': 2, 'CRPS': 2, 'RICP': 2,
+    'CPA': 1, 'CFA': 1, 'CDFA': 1, 'AIF': 1, 'IAR': 1,
+    'EA': 3,
+}
+
+
+def _apply_custom_period(user_designation, period_start, period_end):
+    """Override period dates if user has set a custom_period_end."""
+    if not user_designation.custom_period_end:
+        return period_start, period_end
+    custom_end = user_designation.custom_period_end
+    cycle_years = _CYCLE_LENGTHS.get(user_designation.designation, 1)
+    custom_start = custom_end - relativedelta(years=cycle_years) + timedelta(days=1)
+    return custom_start, custom_end
 
 
 def calculate_cfp_requirements(user, user_designation):
@@ -17,6 +37,8 @@ def calculate_cfp_requirements(user, user_designation):
     else:
         period_start = datetime(current_year - 1, birth_month, 1).date()
         period_end = datetime(current_year + 1, birth_month, 1).date() - timedelta(days=1)
+
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
 
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
@@ -50,6 +72,8 @@ def calculate_cpa_requirements(user, user_designation):
     period_start = datetime(current_year, 1, 1).date()
     period_end = datetime(current_year, 12, 31).date()
 
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
+
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
         CERecord.date_completed <= period_end
@@ -80,6 +104,8 @@ def calculate_ea_requirements(user, user_designation):
     cycle_start_year = (current_year // 3) * 3
     period_start = datetime(cycle_start_year, 1, 1).date()
     period_end = datetime(cycle_start_year + 2, 12, 31).date()
+
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
 
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
@@ -134,8 +160,10 @@ def _calculate_cepi_requirements(user, user_designation, designation_name):
         designation_date.day
     ).date() - timedelta(days=1)
 
-    if period_end > current_date:
+    if not user_designation.custom_period_end and period_end > current_date:
         period_end = current_date
+
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
 
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
@@ -175,6 +203,8 @@ def calculate_cfa_requirements(user, user_designation):
     period_start = datetime(current_year, 1, 1).date()
     period_end = datetime(current_year, 12, 31).date()
 
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
+
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
         CERecord.date_completed <= period_end
@@ -204,6 +234,8 @@ def calculate_clu_requirements(user, user_designation):
     cycle_start = current_year - 1 if current_year % 2 == 0 else current_year
     period_start = datetime(cycle_start, 1, 1).date()
     period_end = datetime(cycle_start + 1, 12, 31).date()
+
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
 
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
@@ -235,6 +267,8 @@ def calculate_chfc_requirements(user, user_designation):
     period_start = datetime(cycle_start, 1, 1).date()
     period_end = datetime(cycle_start + 1, 12, 31).date()
 
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
+
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
         CERecord.date_completed <= period_end
@@ -264,6 +298,8 @@ def _calculate_iwi_requirements(user, user_designation, designation_name, requir
     cycle_start = current_year - 1 if current_year % 2 == 0 else current_year
     period_start = datetime(cycle_start, 1, 1).date()
     period_end = datetime(cycle_start + 1, 12, 31).date()
+
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
 
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
@@ -306,6 +342,8 @@ def calculate_crps_requirements(user, user_designation):
     period_start = datetime(cycle_start, 1, 1).date()
     period_end = datetime(cycle_start + 1, 12, 31).date()
 
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
+
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
         CERecord.date_completed <= period_end
@@ -336,6 +374,8 @@ def calculate_ricp_requirements(user, user_designation):
     period_start = datetime(cycle_start, 1, 1).date()
     period_end = datetime(cycle_start + 1, 12, 31).date()
 
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
+
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
         CERecord.date_completed <= period_end
@@ -364,6 +404,8 @@ def calculate_cdfa_requirements(user, user_designation):
     current_year = datetime.now().year
     period_start = datetime(current_year, 1, 1).date()
     period_end = datetime(current_year, 12, 31).date()
+
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
 
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
@@ -394,6 +436,8 @@ def calculate_aif_requirements(user, user_designation):
     period_start = datetime(current_year, 1, 1).date()
     period_end = datetime(current_year, 12, 31).date()
 
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
+
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
         CERecord.date_completed <= period_end
@@ -422,6 +466,8 @@ def calculate_iar_requirements(user, user_designation):
     current_year = datetime.now().year
     period_start = datetime(current_year, 1, 1).date()
     period_end = datetime(current_year, 12, 31).date()
+
+    period_start, period_end = _apply_custom_period(user_designation, period_start, period_end)
 
     ce_records = CERecord.query.filter_by(user_id=user.id).filter(
         CERecord.date_completed >= period_start,
@@ -477,6 +523,7 @@ def calculate_designation_requirements(user, user_designations):
         if calc:
             req = calc(user, ud)
             if req:
+                req['is_custom_period'] = bool(ud.custom_period_end)
                 requirements.append(req)
     return requirements
 
