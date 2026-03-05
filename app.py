@@ -47,7 +47,9 @@ def update_database_schema():
         # Add is_admin column to users table
         try:
             db.session.execute(text('SELECT is_admin FROM users LIMIT 1'))
+            db.session.rollback()
         except Exception:
+            db.session.rollback()
             try:
                 db.session.execute(text(f'ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT {boolean_default} NOT NULL'))
                 db.session.commit()
@@ -78,10 +80,13 @@ def update_database_schema():
         for table, column, col_type in columns_to_add:
             try:
                 db.session.execute(text(f'SELECT {column} FROM {table} LIMIT 1'))
+                db.session.rollback()
             except Exception:
+                db.session.rollback()
                 try:
                     db.session.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'))
                     db.session.commit()
+                    print(f"Added column {column} to {table}.")
                 except Exception:
                     db.session.rollback()
 
