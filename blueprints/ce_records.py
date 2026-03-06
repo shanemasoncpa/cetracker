@@ -369,6 +369,10 @@ def extract_pdf():
 
         data = json.loads(response_text)
 
+        # Claude may return a list of courses for multi-session PDFs
+        if isinstance(data, list):
+            data = data[0] if data else {}
+
         return jsonify({
             'title': data.get('title'),
             'provider': data.get('provider'),
