@@ -95,6 +95,43 @@ def add_ce():
     return render_template('add_ce.html', user=user)
 
 
+@ce_bp.route('/check_duplicate', methods=['POST'])
+def check_duplicate():
+    if 'user_id' not in session:
+        return jsonify({'duplicate': False})
+
+    title = request.form.get('title', '').strip()
+    date_completed = request.form.get('date_completed', '').strip()
+    hours = request.form.get('hours', '').strip()
+
+    if not title or not date_completed or not hours:
+        return jsonify({'duplicate': False})
+
+    try:
+        hours_val = float(hours)
+        date_val = datetime.strptime(date_completed, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'duplicate': False})
+
+    existing = CERecord.query.filter_by(
+        user_id=session['user_id'],
+        title=title,
+        date_completed=date_val,
+        hours=hours_val
+    ).first()
+
+    if existing:
+        return jsonify({
+            'duplicate': True,
+            'existing': {
+                'title': existing.title,
+                'date': existing.date_completed.strftime('%b %d, %Y'),
+                'hours': existing.hours,
+            }
+        })
+    return jsonify({'duplicate': False})
+
+
 @ce_bp.route('/delete_ce/<int:ce_id>', methods=['POST'])
 def delete_ce(ce_id):
     if 'user_id' not in session:

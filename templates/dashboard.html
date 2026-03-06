@@ -1109,6 +1109,67 @@
         document.getElementById('addCEForm').reset();
     }
 
+    // ==========================================
+    // Duplicate Detection
+    // ==========================================
+    function checkDuplicateBeforeSubmit(form) {
+        var title = form.querySelector('[name="title"]').value.trim();
+        var dateCompleted = form.querySelector('[name="date_completed"]').value.trim();
+        var hours = form.querySelector('[name="hours"]').value.trim();
+
+        if (!title || !dateCompleted || !hours) return true; // let normal validation handle it
+
+        var formData = new FormData();
+        formData.append('title', title);
+        formData.append('date_completed', dateCompleted);
+        formData.append('hours', hours);
+
+        // Block submit, check async, then submit if OK
+        fetch('{{ url_for("ce_records.check_duplicate") }}', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            if (data.duplicate) {
+                var msg = 'You already have "' + data.existing.title + '" on ' + data.existing.date + ' for ' + data.existing.hours + ' hrs.\n\nSave anyway?';
+                if (confirm(msg)) {
+                    form._skipDuplicateCheck = true;
+                    form.submit();
+                }
+            } else {
+                form._skipDuplicateCheck = true;
+                form.submit();
+            }
+        })
+        .catch(function() {
+            // On error, just submit normally
+            form._skipDuplicateCheck = true;
+            form.submit();
+        });
+
+        return false; // prevent default submit while we check
+    }
+
+    // Attach to both forms
+    document.getElementById('addCEForm').addEventListener('submit', function(e) {
+        if (this._skipDuplicateCheck) {
+            this._skipDuplicateCheck = false;
+            return true;
+        }
+        e.preventDefault();
+        checkDuplicateBeforeSubmit(this);
+    });
+
+    document.getElementById('extractResultForm').addEventListener('submit', function(e) {
+        if (this._skipDuplicateCheck) {
+            this._skipDuplicateCheck = false;
+            return true;
+        }
+        e.preventDefault();
+        checkDuplicateBeforeSubmit(this);
+    });
+
     // Close modals when clicking outside
     window.addEventListener('click', function(event) {
         var addModal = document.getElementById('addCEModal');
